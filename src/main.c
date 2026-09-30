@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "track.h"
+#include "race.h"
 
 void ClearScreen() {
 	dprintf(1, "\x1b[2J");    // Очистить весь экран
@@ -10,6 +11,9 @@ void ClearScreen() {
 }
 
 int main() {
-	ClearScreen();
+	// ClearScreen();
+	Race race;
+    LoadTrack("data/track1", &race.track);
+	printf("%d %c\n", race.track.start.pos.x, GetCellSymbol(race.track.map[race.track.start.pos.y][race.track.start.pos.x]));
 	return 0;
 }

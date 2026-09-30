@@ -1,19 +1,22 @@
 #ifndef RACE_H
 #define RACE_H
 
+#include "car.h"
 #include "track.h"
 
-// Структура, описывающая автогонку
-typedef struct {
-	RaceTrack track; // Гоночная трасса
-	int lapCount;    // Количество кругов до финиша
-	int teamCount;   // Количество команд, участвующих в гонке
-} AutoRace;
+enum {
+	MAX_CARS = 8
+};
 
-// Загрузить карту гоночной трассы из файла
-void LoadTrack(const char* fileName, RaceTrack* track);
+// Структура, описывающая гонку
+typedef struct {
+	Track track;  // Гоночная трасса (статическая)
+	Car cars[MAX_CARS];  // Машины в порядке лидирования
+} Race;
 
 // Вывод текущего состояния гонки на дисплей
-void DrawRace(RaceTrack* track);
+void DrawRace(Race* race); 
+
+void StartRace(Race* race);
 
 #endif
