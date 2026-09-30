@@ -11,9 +11,17 @@ void ClearScreen() {
 }
 
 int main() {
-	// ClearScreen();
 	Race race;
-    LoadTrack("data/track1", &race.track);
-	printf("%d %c\n", race.track.start.pos.x, GetCellSymbol(race.track.map[race.track.start.pos.y][race.track.start.pos.x]));
+	Track track;
+	Rules rules = (Rules){
+		.carsInTeam = 4,
+		.teamCount = 2,
+		.maxLaps = 3,
+		.maxRounds = 100,
+		.startOrder = {1, 2, 3}
+	};
+	
+	LoadTrack("data/track1", &track);
+	CreateRace(&race, &track, &rules);
 	return 0;
 }

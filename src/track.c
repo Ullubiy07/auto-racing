@@ -11,6 +11,7 @@ static void FindStart(Track* track) {
 			CellType type = track->map[i][j];
 			if (type == CELL_START_LEFT || type == CELL_START_RIGHT ||
 				type == CELL_START_DOWN || type == CELL_START_UP) {
+				++track->start.lane;
 				if (i == 1 || j == 1 || i == track->height - 2 || j == track->width - 2) {
 					track->start.pos = (Point){j, i};
 					switch (type) {
@@ -76,6 +77,7 @@ typedef struct {
 static const CellMapping cells[] = {
 	{ CELL_WALL,        '#' },
 	{ CELL_ROAD,        '.' },
+	{ CELL_EMPTY,       ' ' },
 	{ CELL_TURN_RIGHT,  '>' },
 	{ CELL_TURN_LEFT,   '<' },
 	{ CELL_TURN_UP,     '^' },

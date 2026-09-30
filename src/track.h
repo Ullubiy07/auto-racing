@@ -10,6 +10,7 @@ enum {
 typedef enum {
 	CELL_WALL,         // Стена
 	CELL_ROAD,         // Дорога
+	CELL_EMPTY,        // Пустая
 	CELL_START_RIGHT,  // Старт вправо
 	CELL_START_LEFT,   // Старт влево
 	CELL_START_UP,     // Старт вверх
@@ -30,6 +31,7 @@ typedef struct {
 typedef struct {
 	Point pos;  // Координаты точки старта (x, y)
 	Point dir;  // Направление движения (dx, dy)
+	int lane;   // Номер внешней дорожки (число дорожек)
 } StartLane;
 
 // Структура, описывающая гоночную трассу
