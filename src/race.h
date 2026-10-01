@@ -5,16 +5,17 @@
 #include "track.h"
 
 enum {
-	MAX_CARS = 15
+	MAX_CARS = 26,
+	MAX_TEAMS = 6,
 };
 
 // Структура, описывающая правила гонки (входные параметры)
 typedef struct {
-	int startOrder[MAX_CARS];  // Порядок старта: массив ID (1...N) команд, выстроенных вдоль внешней дорожки
-	int teamCount;             // Количество команд
-	int carsInTeam;            // Количество машин в команде
-	int maxLaps;               // Число кругов
-	int maxRounds;             // Предельное число раундов
+	char startOrder[MAX_CARS];  // Порядок старта: массив ID (1...N) команд, выстроенных вдоль внешней дорожки
+	int teamCount;              // Количество команд
+	int carsInTeam;             // Количество машин в команде
+	int maxLaps;                // Число кругов
+	int maxRounds;              // Предельное число раундов
 	int bonus;
 } Rules;
 
@@ -32,6 +33,6 @@ void CreateRace(Race* r, const Track* track, const Rules* rules);
 void StartRace(Race* r);
 
 // Вывести текущее состояние гонки на дисплей
-void DrawRace(Race* r);
+void DrawRace(const Race* r);
 
 #endif

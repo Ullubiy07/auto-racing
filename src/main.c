@@ -14,14 +14,15 @@ int main() {
 	Race race;
 	Track track;
 	Rules rules = (Rules){
-		.carsInTeam = 4,
-		.teamCount = 2,
+		.carsInTeam = 2,
+		.teamCount = 4,
 		.maxLaps = 3,
 		.maxRounds = 100,
-		.startOrder = {1, 2, 3}
+		.startOrder = {'A', 'C', 'E', 'G', 'B', 'D', 'F', 'H'}
 	};
 	
 	LoadTrack("data/track1", &track);
 	CreateRace(&race, &track, &rules);
+	DrawRace(&race);
 	return 0;
 }

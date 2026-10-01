@@ -8,19 +8,31 @@ enum {
 
 // Перечисление, описывающее тип клеток карты
 typedef enum {
-	CELL_WALL,         // Стена
-	CELL_ROAD,         // Дорога
-	CELL_EMPTY,        // Пустая
-	CELL_START_RIGHT,  // Старт вправо
-	CELL_START_LEFT,   // Старт влево
-	CELL_START_UP,     // Старт вверх
-	CELL_START_DOWN,   // Старт вниз
-	CELL_TURN_RIGHT,   // Поворот вправо
-	CELL_TURN_LEFT,    // Поворот влево
-	CELL_TURN_UP,      // Поворот вверх
-	CELL_TURN_DOWN,    // Поворот вниз
-	CELL_UNKNOWN       // Неизвестно
+	CELL_WALL_HOR,        // Стена - вертикальная
+	CELL_WALL_VERT,       // Стена - горизонтальная
+	CELL_WALL_TOP_LEFT,   // Стена - верхний левый уголок
+	CELL_WALL_TOP_RIGHT,  // Стена - верхний правый уголок
+	CELL_WALL_BOT_LEFT,   // Стена - нижний левый уголок
+	CELL_WALL_BOT_RIGHT,  // Стена - нижний правый уголок
+	CELL_ROAD,            // Дорога
+	CELL_EMPTY,           // Пустая
+	CELL_START_RIGHT,     // Старт вправо
+	CELL_START_LEFT,      // Старт влево
+	CELL_START_UP,        // Старт вверх
+	CELL_START_DOWN,      // Старт вниз
+	CELL_TURN_RIGHT,      // Поворот вправо
+	CELL_TURN_LEFT,       // Поворот влево
+	CELL_TURN_UP,         // Поворот вверх
+	CELL_TURN_DOWN,       // Поворот вниз
+	CELL_UNKNOWN          // Неизвестно
 } CellType;
+
+// Структура, описывающая информацию о типе клетки
+typedef struct {
+	CellType type;
+	char inputSymbol;          // Символ, обрабатываемый на входе
+	const char* outputSymbol;  // Символ для отображения
+} CellInfo;
 
 typedef struct {
 	int x;
@@ -45,10 +57,7 @@ typedef struct {
 // Загрузить трассу из файла
 void LoadTrack(const char* fileName, Track* track);
 
-// Получить тип клетки по ее символу
-CellType GetCellType(char symbol);
-
-// Получить символ клетки по ее типу
-char GetCellSymbol(CellType type);
+// Получить информацию о клетке
+const CellInfo* GetCellInfo(CellType type);
 
 #endif
