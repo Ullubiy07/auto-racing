@@ -12,4 +12,5 @@ add_executable(racing
 	track.c
 	
 	car.h
+	car.c
 )

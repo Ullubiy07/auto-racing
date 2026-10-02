@@ -18,11 +18,11 @@ int main() {
 		.teamCount = 4,
 		.maxLaps = 3,
 		.maxRounds = 100,
-		.startOrder = {'A', 'C', 'E', 'G', 'B', 'D', 'F', 'H'}
+		.startOrder = "ACEGBDFH"
 	};
 	
 	LoadTrack("data/track1", &track);
-	CreateRace(&race, &track, &rules);
+	InitRace(&race, &track, &rules);
 	DrawRace(&race);
 	return 0;
 }
