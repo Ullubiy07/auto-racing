@@ -8,49 +8,44 @@ enum {
 	MAX_MAP_WIDTH  = 50
 };
 
-// Перечисление, описывающее тип клеток карты
+// Перечисление, описывающее тип клеток схемы трассы
 typedef enum {
-	CELL_EMPTY,           // Фон, пустота, исключительно для отрисовки
-	CELL_UNKNOWN,         // Неизвестная клетка
+	LAYOUT_EMPTY,           // Фон, пустота, исключительно для отрисовки
+	LAYOUT_UNKNOWN,         // Неизвестная клетка
 
 	// Стены
-	CELL_WALL_HOR,        // Вертикальная
-	CELL_WALL_VERT,       // Горизонтальная
-	CELL_WALL_TOP_LEFT,   // Верхний левый уголок
-	CELL_WALL_TOP_RIGHT,  // Верхний правый уголок
-	CELL_WALL_BOT_LEFT,   // Нижний левый уголок
-	CELL_WALL_BOT_RIGHT,  // Нижний правый уголок
+	LAYOUT_WALL_HOR,        // Вертикальная
+	LAYOUT_WALL_VERT,       // Горизонтальная
+	LAYOUT_WALL_TOP_LEFT,   // Верхний левый уголок
+	LAYOUT_WALL_TOP_RIGHT,  // Верхний правый уголок
+	LAYOUT_WALL_BOT_LEFT,   // Нижний левый уголок
+	LAYOUT_WALL_BOT_RIGHT,  // Нижний правый уголок
 	
 	// Дороги
-	CELL_ROAD,            // Дорога
-	CELL_START_RIGHT,     // Старт вправо
-	CELL_START_LEFT,      // Старт влево
-	CELL_START_UP,        // Старт вверх
-	CELL_START_DOWN,      // Старт вниз
-	CELL_TURN_RIGHT,      // Поворот вправо
-	CELL_TURN_LEFT,       // Поворот влево
-	CELL_TURN_UP,         // Поворот вверх
-	CELL_TURN_DOWN        // Поворот вниз
-} CellType;
+	LAYOUT_ROAD,            // Дорога
+	LAYOUT_START_RIGHT,     // Старт вправо
+	LAYOUT_START_LEFT,      // Старт влево
+	LAYOUT_START_UP,        // Старт вверх
+	LAYOUT_START_DOWN,      // Старт вниз
+	LAYOUT_TURN_RIGHT,      // Поворот вправо
+	LAYOUT_TURN_LEFT,       // Поворот влево
+	LAYOUT_TURN_UP,         // Поворот вверх
+	LAYOUT_TURN_DOWN        // Поворот вниз
+} LayoutType;
 
-// Является ли клетка поворотом
-bool IsCellTurn(CellType type);
+bool IsCellTurn(LayoutType type);
 
-// Является ли клетка стартовой
-bool IsCellStart(CellType type);
-
-// Можно ли по клетке ездить
-bool IsCellDriveable(CellType type);
+bool IsCellStart(LayoutType type);
 
 // Структура, описывающая информацию о клетке
 typedef struct {
-	CellType type;  // Тип клетки 
+	LayoutType type;  // Тип клетки 
 	char inputSymbol;  // Символ, обрабатываемый на входе
 	const char* outputSymbol;  // Символ для отображения
 } CellInfo;
 
 // Получить информацию о клетке
-const CellInfo* GetCellInfo(CellType type);
+const CellInfo* GetCellInfo(LayoutType type);
 
 typedef struct {
 	int x;
@@ -58,7 +53,7 @@ typedef struct {
 } Point;
 
 // Получить направление клетки
-Point CellDirection(CellType type);
+Point CellDirection(LayoutType type);
 
 // Структура, описывающая стартовую решетку
 typedef struct {
@@ -67,9 +62,14 @@ typedef struct {
 	int laneCount;  // Количество стартовых полос (дорожек)
 } Grid;
 
-// Структура, описывающая гоночную трассу (входные данные)
 typedef struct {
-	CellType map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Карта
+	LayoutType type;
+	bool clear;
+} Cell;
+
+// Структура, описывающая гоночную трассу
+typedef struct {
+	Cell map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Карта
 	Grid grid;   // Стартовая решетка
 	int height;  // Высота карты
 	int width;   // Ширина карты

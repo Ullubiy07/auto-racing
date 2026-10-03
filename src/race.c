@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "race.h"
 #include "car.h"
@@ -21,16 +22,16 @@ static Team InitTeam(char carSymbol, int carsInTeam) {
 	return team;
 }
 
-static void InitCars(Race* r) {
+static void InitCars(Race* race) {
 	int used[MAX_CARS] = {0};
 	
-	for (int i = 0; i < r->carCount; ++i) {
-		char symbol = r->rules->startOrder[i];
+	for (int i = 0; i < race->carCount; ++i) {
+		char symbol = race->rules->startOrder[i];
 		char index = symbol - 'A';
 
-		if (index >= r->carCount || symbol < 'A') {
+		if (index >= race->carCount || symbol < 'A') {
 			dprintf(2, "Expected symbols between '%c' and '%c', got: '%c'\n", 
-					'A', 'A' + r->carCount - 1, symbol);
+					'A', 'A' + race->carCount - 1, symbol);
 			exit(2);
 		}
 		
@@ -40,33 +41,34 @@ static void InitCars(Race* r) {
 		}
 		used[index] = 1;
 		
-		Team team = InitTeam(symbol, r->rules->carsInTeam);
-		InitCar(&r->cars[i], symbol, team, &r->track->grid, i + 1);
+		Team team = InitTeam(symbol, race->rules->carsInTeam);
+		InitCar(&race->cars[i], symbol, team, &race->track->grid, i + 1);
 		
-		Point pos = r->cars[i].pos;
-		if (!IsCellDriveable(r->track->map[pos.y][pos.x])) {
-			dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, r->carCount);
+		Point pos = race->cars[i].pos;
+		if (!race->track->map[pos.y][pos.x].clear) {
+			dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
 			exit(2);
 		}
+		race->track->map[pos.y][pos.x].clear = 0;
 	}
 }
 
-static int IsCarAt(const Race* r, Point pos, const Car** res) {
-	for (int i = 0; i < r->carCount; ++i) {
-		if (r->cars[i].pos.x == pos.x && r->cars[i].pos.y == pos.y) {
-			*res = &r->cars[i];
+static int IsCarAt(const Race* race, Point pos, const Car** res) {
+	for (int i = 0; i < race->carCount; ++i) {
+		if (race->cars[i].pos.x == pos.x && race->cars[i].pos.y == pos.y) {
+			*res = &race->cars[i];
 			return 1;
 		}
 	}
 	return 0;
 }
 
-void InitRace(Race* r, const Track* track, const Rules* rules) {
-	r->track = track;
-	r->rules = rules;
-	r->carCount = rules->teamCount * rules->carsInTeam;
-	if (r->carCount > MAX_CARS) {
-		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, r->carCount);
+void InitRace(Race* race, Track* track, const Rules* rules) {
+	race->track = track;
+	race->rules = rules;
+	race->carCount = rules->teamCount * rules->carsInTeam;
+	if (race->carCount > MAX_CARS) {
+		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, race->carCount);
 		exit(2);
 	}
 	if (rules->teamCount > MAX_TEAMS) {
@@ -75,24 +77,39 @@ void InitRace(Race* r, const Track* track, const Rules* rules) {
 	}
 	
 	int size = strlen(rules->startOrder);
-	if (size != r->carCount) {
-		dprintf(2, "Invalid start order size, need: %d, got: %d\n", r->carCount, size);
+	if (size != race->carCount) {
+		dprintf(2, "Invalid start order size, need: %d, got: %d\n", race->carCount, size);
 		exit(2);
 	}
 	
-	InitCars(r);
+	InitCars(race);
 }
 
-void DrawRace(const Race* r) {
-	CellType type;
+void ClearScreen() {
+	dprintf(1, "\x1b[2J");    // Очистить весь экран
+	dprintf(1, "\x1b[0;0f");  // Переместить курсор в левый верхний угол
+}
+
+void StartRace(Race* race) {
+	while (true) {
+		for (int i = 0; i < race->carCount; ++i) {
+			ClearScreen();
+			DrawRace(race);
+			MoveCar(&race->cars[i], race->track);
+			usleep(1000 * 100);
+		}
+	}
+}
+
+void DrawRace(const Race* race) {
 	const Car* car;
 	
-	for (int i = 0; i < r->track->height; ++i) {
-		for (int j = 0; j < r->track->width; ++j) {
-			if (IsCarAt(r, (Point){j, i}, &car)) {
-				dprintf(1, "\x1b[%d;1m%c\x1b[0m", car->team.color, car->id);
+	for (int i = 0; i < race->track->height; ++i) {
+		for (int j = 0; j < race->track->width; ++j) {
+			if (IsCarAt(race, (Point){j, i}, &car)) {
+				dprintf(1, "\x1b[%d;1m%c \x1b[0m", car->team.color, car->id);
 			} else {
-				type = r->track->map[i][j];
+				LayoutType type = race->track->map[i][j].type;
 				dprintf(1, "%s", GetCellInfo(type)->outputSymbol);
 			}
 		}

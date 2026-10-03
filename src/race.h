@@ -11,7 +11,7 @@ enum {
 
 // Структура, описывающая правила гонки (входные параметры)
 typedef struct {
-	const char* startOrder;  // Порядок старта: массив ID (1...N) команд, выстроенных вдоль внешней дорожки
+	const char* startOrder;  // Порядок старта: массив символов машин, выстроенных вдоль внешней дорожки
 	int teamCount;           // Количество команд
 	int carsInTeam;          // Количество машин в команде
 	int maxLaps;             // Число кругов
@@ -21,18 +21,18 @@ typedef struct {
 
 // Структура, описывающая гонку
 typedef struct {
-	const Track* track;  // Гоночная трасса
+	Track* track;  // Гоночная трасса
 	const Rules* rules;  // Правила гонки
 	int carCount;        // Количество машин
 	Car cars[MAX_CARS];  // Машины в порядке лидирования
 } Race;
 
 // Инициализировать гонку
-void InitRace(Race* r, const Track* track, const Rules* rules);
+void InitRace(Race* race, Track* track, const Rules* rules);
 
-void StartRace(Race* r);
+void StartRace(Race* race);
 
 // Вывести текущее состояние гонки на дисплей
-void DrawRace(const Race* r);
+void DrawRace(const Race* race);
 
 #endif

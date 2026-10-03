@@ -1,14 +1,12 @@
-#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
 
 #include "track.h"
 #include "race.h"
 
-void ClearScreen() {
-	dprintf(1, "\x1b[2J");    // Очистить весь экран
-	dprintf(1, "\x1b[0;0f");  // Переместить курсор в левый верхний угол
-}
-
 int main() {
+	srand(time(0));
+	
 	Race race;
 	Track track;
 	Rules rules = (Rules){
@@ -22,5 +20,6 @@ int main() {
 	LoadTrack("data/track1", &track);
 	InitRace(&race, &track, &rules);
 	DrawRace(&race);
+	StartRace(&race);
 	return 0;
 }
