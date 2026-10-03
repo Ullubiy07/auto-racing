@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "car.h"
-#include "track.h"
 
 void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {	
 	car->id = id;
@@ -33,17 +32,23 @@ static Point GetNextPosition(const Car* car, MoveType type) {
 	}
 }
 
-static bool CanMove(Car* car, const Track* track, MoveType type) {
+static bool CanMove(const Car* car, const Track* track, MoveType type) {
 	Point pos = GetNextPosition(car, type);
 	if (pos.x < 0 || pos.x >= track->width || pos.y < 0 || pos.y >= track->height) {
 		return false;
 	}
 	
-	bool currentIsTurn = IsCellTurn(track->map[car->pos.y][car->pos.x].type);
+	Cell newCell = track->map[pos.y][pos.x];
+	if (!IsCellDriveable(newCell.type)) {
+		return false;
+	}
+	
+	Cell oldCell = track->map[car->pos.y][car->pos.x];
+	bool currentIsTurn = IsCellTurn(oldCell.type);
 	if ((type == MOVE_LEFT || type == MOVE_RIGHT) && currentIsTurn) {
 		return false;
 	}
-	return track->map[pos.y][pos.x].clear;
+	return IsCellFree(&newCell);
 }
 
 static bool MoveByType(Car* car, Track* track, MoveType type) {
@@ -52,10 +57,12 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 	}
 	
 	Point next = GetNextPosition(car, type);
-	Cell* cell = &track->map[next.y][next.x];
+	Cell* oldCell = &track->map[car->pos.y][car->pos.x];
+	Cell* newCell = &track->map[next.y][next.x];
 	
-	track->map[car->pos.y][car->pos.x].clear = true;
-	cell->clear = false;
+	ClearCell(oldCell);
+	SetCellEntity(newCell, ENTITY_CAR, car);
+	
 	car->pos = next;
 	
 	if (type == MOVE_LEFT) {
@@ -64,8 +71,8 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 		car->lane += (track->grid.isClockwise ? 1 : -1);
 	}
 	
-	if (IsCellTurn(cell->type)) {
-		car->dir = GetCellDirection(cell->type);
+	if (IsCellTurn(newCell->type)) {
+		car->dir = GetCellDirection(newCell->type);
 	}
 	return true;
 }

@@ -4,8 +4,6 @@
 #include <unistd.h>
 
 #include "race.h"
-#include "car.h"
-#include "track.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -45,22 +43,13 @@ static void InitCars(Race* race) {
 		InitCar(&race->cars[i], symbol, team, &race->track->grid, i + 1);
 		
 		Point pos = race->cars[i].pos;
-		if (!race->track->map[pos.y][pos.x].clear) {
+		Cell* cell = &race->track->map[pos.y][pos.x];
+		if (!IsCellDriveable(cell->type)) {
 			dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
 			exit(2);
 		}
-		race->track->map[pos.y][pos.x].clear = 0;
+		SetCellEntity(cell, ENTITY_CAR, &race->cars[i]);
 	}
-}
-
-static int IsCarAt(const Race* race, Point pos, const Car** res) {
-	for (int i = 0; i < race->carCount; ++i) {
-		if (race->cars[i].pos.x == pos.x && race->cars[i].pos.y == pos.y) {
-			*res = &race->cars[i];
-			return 1;
-		}
-	}
-	return 0;
 }
 
 void InitRace(Race* race, Track* track, const Rules* rules, const Judje* judje) {
@@ -103,15 +92,14 @@ void StartRace(Race* race) {
 }
 
 void DrawRace(const Race* race) {
-	const Car* car;
-	
 	for (int i = 0; i < race->track->height; ++i) {
 		for (int j = 0; j < race->track->width; ++j) {
-			if (IsCarAt(race, (Point){j, i}, &car)) {
+			Cell cell = race->track->map[i][j];
+			if (cell.entity.type == ENTITY_CAR) {
+				Car* car = cell.entity.data;
 				dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
 			} else {
-				CellType type = race->track->map[i][j].type;
-				dprintf(1, "%s", GetCellInfo(type)->outSymbol);
+				dprintf(1, "%s", GetCellInfo(cell.type)->outSymbol);
 			}
 		}
 		dprintf(1, "\n");
