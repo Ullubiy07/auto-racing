@@ -24,6 +24,8 @@ typedef struct Car {
 	Direction dir;  // Направление движения (dx, dy)
 	int lane;       // Номер дорожки
 	
+	Point prevPos;
+	
 	int is_finished;  // Завершила ли машина гонку
 	int is_out;       // Сошла ли машина с дистанции
 } Car;

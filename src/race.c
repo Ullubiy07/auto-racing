@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "judje.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -52,10 +53,9 @@ static void InitCars(Race* race) {
 	}
 }
 
-void InitRace(Race* race, Track* track, const Rules* rules, const Judje* judje) {
+void InitRace(Race* race, Track* track, const Rules* rules) {
 	race->track = track;
 	race->rules = rules;
-	race->judje = judje;
 	race->carCount = rules->teamCount * rules->carsInTeam;
 	if (race->carCount > MAX_CARS) {
 		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, race->carCount);
@@ -73,6 +73,7 @@ void InitRace(Race* race, Track* track, const Rules* rules, const Judje* judje) 
 	}
 	
 	InitCars(race);
+	InitJudje(&race->judje, race->cars, race->carCount, race->rules->maxRounds);
 }
 
 void ClearScreen() {
@@ -80,18 +81,7 @@ void ClearScreen() {
 	dprintf(1, "\x1b[0;0f");  // Переместить курсор в левый верхний угол
 }
 
-void StartRace(Race* race) {
-	while (true) {
-		for (int i = 0; i < race->carCount; ++i) {
-			ClearScreen();
-			DrawRace(race);
-			MoveCar(&race->cars[i], race->track);
-			usleep(1000 * 100);
-		}
-	}
-}
-
-void DrawRace(const Race* race) {
+static void DrawRace(const Race* race) {
 	for (int i = 0; i < race->track->height; ++i) {
 		for (int j = 0; j < race->track->width; ++j) {
 			Cell cell = race->track->map[i][j];
@@ -103,5 +93,30 @@ void DrawRace(const Race* race) {
 			}
 		}
 		dprintf(1, "\n");
+	}
+}
+
+static void PlayRound(Race* race) {
+	int maxMoves;
+	Judje* judje = &race->judje;
+	
+	for (int i = 0; i < judje->carCount; ++i) {
+		int maxMoves = (i == 0 ? 4 : i == 1 ? maxMoves + 2 : maxMoves + 1);
+		
+		for (int j = 0; j < maxMoves; ++j) {
+			ClearScreen();
+			DrawRace(race);
+			if (!MoveCar(judje->moveOrder[i], race->track)) {
+				break;
+			}
+			usleep(1000 * 100);
+		}
+	}
+}
+
+void StartRace(Race* race) {
+	while (!IsRaceOver(&race->judje)) {
+		StartRound(&race->judje);
+		PlayRound(race);
 	}
 }

@@ -14,6 +14,9 @@ add_executable(racing
 	cell.h
 	cell.c
 	
+	judje.h
+	judje.c
+	
 	car.h
 	car.c
 )

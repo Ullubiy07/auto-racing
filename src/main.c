@@ -3,7 +3,6 @@
 
 #include "track.h"
 #include "race.h"
-#include "judje.h"
 
 int main() {
 	srand(time(0));
@@ -14,14 +13,13 @@ int main() {
 		.carsInTeam = 2,
 		.teamCount = 4,
 		.maxLaps = 3,
-		.maxRounds = 100,
+		.maxRounds = 4,
 		.startOrder = "ACEGBDFH"
 	};
-	Judje judje;
 	
 	LoadTrack("data/track1", &track);
-	InitRace(&race, &track, &rules, &judje);
-	DrawRace(&race);
+	InitRace(&race, &track, &rules);
+	
 	StartRace(&race);
 	return 0;
 }

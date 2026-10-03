@@ -15,6 +15,8 @@ void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {
 	car->pos.x -= offsetX;
 	car->pos.y -= offsetY;
 	
+	car->prevPos = (Point) {-1, -1};
+	
 	car->is_finished = 0;
 	car->is_out = 0;
 }
@@ -63,6 +65,7 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 	ClearCell(oldCell);
 	SetCellEntity(newCell, ENTITY_CAR, car);
 	
+	car->prevPos = car->pos;
 	car->pos = next;
 	
 	if (type == MOVE_LEFT) {
@@ -78,16 +81,16 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 }
 
 static size_t GetValidMoves(Car* car, const Track* track, MoveType* moves) {
+	MoveType types[] = { MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT };
 	size_t count = 0;
 	
-	if (CanMove(car, track, MOVE_FORWARD)) {
-		moves[count++] = MOVE_FORWARD;
-	}
-	if (CanMove(car, track, MOVE_LEFT)) {
-		moves[count++] = MOVE_LEFT;
-	}
-	if (CanMove(car, track, MOVE_RIGHT)) {
-		moves[count++] = MOVE_RIGHT;
+	for (int i = 0; i < sizeof(types) / sizeof(types[0]); ++i) {
+		Point nextPos = GetNextPosition(car, types[i]);
+		if (!(nextPos.x == car->prevPos.x && nextPos.y == car->prevPos.y) && 
+			CanMove(car, track, types[i])) 
+		{
+			moves[count++] = types[i];
+		}
 	}
 	return count;
 }
