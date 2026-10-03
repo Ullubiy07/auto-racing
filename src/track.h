@@ -1,6 +1,8 @@
 #ifndef TRACK_H
 #define TRACK_H
 
+#include <stdbool.h>
+
 enum {
 	MAX_MAP_HEIGHT = 30,
 	MAX_MAP_WIDTH  = 50
@@ -32,13 +34,13 @@ typedef enum {
 } CellType;
 
 // Является ли клетка поворотом
-int IsCellTurn(CellType type);
+bool IsCellTurn(CellType type);
 
 // Является ли клетка стартовой
-int IsCellStart(CellType type);
+bool IsCellStart(CellType type);
 
 // Можно ли по клетке ездить
-int IsCellDriveable(CellType type);
+bool IsCellDriveable(CellType type);
 
 // Структура, описывающая информацию о клетке
 typedef struct {
@@ -55,11 +57,14 @@ typedef struct {
 	int y;
 } Point;
 
+// Получить направление клетки
+Point CellDirection(CellType type);
+
 // Структура, описывающая стартовую решетку
 typedef struct {
-	Point pos;       // Координаты точки старта (x, y)
-	Point dir;       // Направление движения (dx, dy)
-	int laneCount;   // Количество стартовых полос (дорожек)
+	Point pos;      // Координаты точки старта (x, y)
+	Point dir;      // Направление движения (dx, dy)
+	int laneCount;  // Количество стартовых полос (дорожек)
 } Grid;
 
 // Структура, описывающая гоночную трассу (входные данные)

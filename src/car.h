@@ -22,8 +22,10 @@ typedef struct Car {
 	int is_out;       // Сошла ли машина с дистанции
 } Car;
 
+// Инициализация машины на стартовой решетке
 void InitCar(Car* car, char id, Team team, const Grid* grid, int slot);
 
+// Движение машины в клетку
 void Move(Car* car, Point pos, CellType type);
 
 #endif

@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -36,37 +36,46 @@ static CellType GetCellType(char inputSymbol) {
 	return CELL_UNKNOWN;
 }
 
-static void FindStart(Track* track) {
+static void SetStart(Track* track) {
 	for (int i = 0; i < track->height; ++i) {
 		for (int j = 0; j < track->width; ++j) {
 			CellType type = track->map[i][j];
-			if (type == CELL_START_LEFT || type == CELL_START_RIGHT ||
-				type == CELL_START_DOWN || type == CELL_START_UP) {
+			if (IsCellStart(type)) {
 				++track->grid.laneCount;
 				if (i == 1 || j == 1 || i == track->height - 2 || j == track->width - 2) {
-					track->grid.pos = (Point){j, i};
-					switch (type) {
-						case CELL_START_LEFT: track->grid.dir = (Point){-1, 0}; return;
-						case CELL_START_RIGHT: track->grid.dir = (Point){1, 0}; return;
-						case CELL_START_DOWN: track->grid.dir = (Point){0, 1}; return;
-						case CELL_START_UP: track->grid.dir = (Point){0, -1}; return;
-						default: return;
-					}
+					track->grid.pos = (Point) { j, i };
+					track->grid.dir = CellDirection(type);
 				}
 			}
 		}
 	}
 }
 
-int IsCellTurn(CellType type) {
+static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
+	int fd = open(fileName, O_RDONLY);
+	if (fd == -1) {
+		perror("Open file error");
+		exit(2);
+	}
+	int count = read(fd, buf, bufSize);
+	if (count == -1) {
+		perror("Read file error");
+		close(fd);
+		exit(2);
+	}
+	close(fd);
+	return count;
+}
+
+bool IsCellTurn(CellType type) {
 	return CELL_TURN_RIGHT <= type && type <= CELL_TURN_DOWN;
 }
 
-int IsCellStart(CellType type) {
+bool IsCellStart(CellType type) {
 	return CELL_START_RIGHT <= type && type <= CELL_START_DOWN;
 }
 
-int IsCellDriveable(CellType type) {
+bool IsCellDriveable(CellType type) {
 	return type == CELL_ROAD || IsCellTurn(type) || IsCellStart(type);
 }
 
@@ -79,44 +88,50 @@ const CellInfo* GetCellInfo(CellType type) {
 	return 0;
 }
 
+Point CellDirection(CellType type) {
+	switch (type) {
+		case CELL_START_LEFT:
+		case CELL_TURN_LEFT: 
+			return (Point) { -1, 0 };
+		case CELL_START_RIGHT:
+		case CELL_TURN_RIGHT: 
+			return (Point) { 1, 0 };
+		case CELL_START_DOWN:
+		case CELL_TURN_DOWN: 
+			return (Point) { 0, 1 };
+		case CELL_START_UP:
+		case CELL_TURN_UP: 
+			return (Point) { 0, -1 };
+		default:
+			break;
+	}
+	return (Point) { 0, 0 };
+}
+
 void LoadTrack(const char* fileName, Track* track) {
-	int fd = open(fileName, O_RDONLY);
-	if (fd == -1) {
-		perror("open track file");
-		exit(2);
-	}
+	const size_t bufSize = MAX_MAP_HEIGHT * MAX_MAP_WIDTH;
+	char buf[bufSize];
+	int count = LoadFile(fileName, buf, bufSize);
 	
-	const size_t bufSize = MAX_MAP_HEIGHT * (MAX_MAP_WIDTH + 1);
-	char buf[bufSize + 1];
-	int count = read(fd, buf, bufSize);
-	if (count == -1) {
-		perror("read track file");
-		close(fd);
-		exit(2);
-	}
-	close(fd);
-	buf[count] = '\0';
-	
-	CellType type;
 	track->width = 0;
-	int x = 0, y = 0;
+	track->height = 0;
 	
-	for (int i = 0; i < count; ++i) {
+	for (int i = 0, x = 0; i < count; ++i) {
 		if (buf[i] == '\n') {
-			if (y == 0) {
+			if (track->height == 0) {
 				track->width = x;
 			}
-			++y;
+			++track->height;
 			x = 0;
 		} else {
-			type = GetCellType(buf[i]);
+			CellType type = GetCellType(buf[i]);
 			if (type == CELL_UNKNOWN) {
-				dprintf(2, "unknown cell type: '%c'\n", buf[i]);
+				dprintf(2, "Unknown cell type: '%c'\n", buf[i]);
 				exit(2);
 			}
-			track->map[y][x++] = type;
+			track->map[track->height][x++] = type;
 		}
 	}
-	track->height = y;
-	FindStart(track);
+	
+	SetStart(track);
 }
