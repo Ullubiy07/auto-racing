@@ -1,54 +1,73 @@
+#include <ctype.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "track.h"
 
 static const CellInfo cells[] = {
-	{ LAYOUT_WALL_HOR,       '-', "──" },
-	{ LAYOUT_WALL_VERT,      '|', "│ " },
-	{ LAYOUT_WALL_TOP_LEFT,  '1', "┌─" },
-	{ LAYOUT_WALL_TOP_RIGHT, '2', "┐ " },
-	{ LAYOUT_WALL_BOT_LEFT,  '3', "└─" },
-	{ LAYOUT_WALL_BOT_RIGHT, '4', "┘ " },
-	{ LAYOUT_ROAD,           '.', ". " },
-	{ LAYOUT_EMPTY,          ' ', "  " },
-	{ LAYOUT_TURN_RIGHT,     '>', ". " },
-	{ LAYOUT_TURN_LEFT,      '<', ". " },
-	{ LAYOUT_TURN_UP,        '^', ". " },
-	{ LAYOUT_TURN_DOWN,      'v', ". " },
-	{ LAYOUT_START_LEFT,     'L', "▓ " },
-	{ LAYOUT_START_RIGHT,    'R', "▓ " },
-	{ LAYOUT_START_DOWN,     'D', "▓ " },
-	{ LAYOUT_START_UP,       'U', "▓ " },
-	{ LAYOUT_UNKNOWN,        '?', "? " }
+	{ LAYOUT_WALL_HOR,       "-",  "──" },
+	{ LAYOUT_WALL_VERT,      "|",  "│ " },
+	{ LAYOUT_WALL_TOP_LEFT,  "1",  "┌─" },
+	{ LAYOUT_WALL_TOP_RIGHT, "2",  "┐ " },
+	{ LAYOUT_WALL_BOT_LEFT,  "3",  "└─" },
+	{ LAYOUT_WALL_BOT_RIGHT, "4",  "┘ " },
+	{ LAYOUT_ROAD,           ".",  ". " },
+	{ LAYOUT_EMPTY,          " ",  "  " },
+	{ LAYOUT_TURN_RIGHT,     ">",  ". " },
+	{ LAYOUT_TURN_LEFT,      "<",  ". " },
+	{ LAYOUT_TURN_UP,        "^",  ". " },
+	{ LAYOUT_TURN_DOWN,      "v",  ". " },
+	{ LAYOUT_START_LEFT,     "Ll", "▓ " },
+	{ LAYOUT_START_RIGHT,    "Rr", "▓ " },
+	{ LAYOUT_START_DOWN,     "Dd", "▓ " },
+	{ LAYOUT_START_UP,       "Uu", "▓ " },
+	{ LAYOUT_UNKNOWN,        "?",  "? " }
 };
 
 static const size_t CELL_MAP_SIZE = sizeof(cells) / sizeof(cells[0]);
 
-static LayoutType GetCellType(char inputSymbol) {
+static CellType GetCellType(char inputSymbol) {
 	for (size_t i = 0; i < CELL_MAP_SIZE; ++i) {
-		if (cells[i].inputSymbol == inputSymbol) {
+		if (strchr(cells[i].inSymbols, inputSymbol)) {
 			return cells[i].type;
 		}
 	}
 	return LAYOUT_UNKNOWN;
 }
 
-static void SetStart(Track* track) {
-	for (int i = 0; i < track->height; ++i) {
-		for (int j = 0; j < track->width; ++j) {
-			LayoutType type = track->map[i][j].type;
-			if (IsCellStart(type)) {
-				++track->grid.laneCount;
-				if (i == 1 || j == 1 || i == track->height - 2 || j == track->width - 2) {
-					track->grid.pos = (Point) { j, i };
-					track->grid.dir = CellDirection(type);
-				}
-			}
+bool IsCellTurn(CellType type) {
+	return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN;
+}
+
+bool IsCellStart(CellType type) {
+	return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN;
+}
+
+static bool IsCellDriveable(CellType type) {
+	return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
+}
+
+static bool IsMovementClockwiseAt(const Track* track, Point pos, Direction dir) {
+	while (pos.y >= 0 && pos.y < track->height &&
+		pos.x >= 0 && pos.x < track->width) 
+	{
+		CellType type = track->map[pos.y][pos.x].type;
+		if (!IsCellDriveable(type)) {
+			dprintf(2, "No turn found (hit non-driveable cell)\n");
+			exit(2);
 		}
+		if (IsCellTurn(type)) {
+			Direction next = GetCellDirection(type);
+			int cross = dir.dx * next.dy - dir.dy * next.dx;
+			return cross > 0;
+		}
+		pos.x += dir.dx;
+		pos.y += dir.dy;
 	}
+	return false;
 }
 
 static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
@@ -67,19 +86,7 @@ static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
 	return count;
 }
 
-bool IsCellTurn(LayoutType type) {
-	return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN;
-}
-
-bool IsCellStart(LayoutType type) {
-	return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN;
-}
-
-static bool IsCellDriveable(LayoutType type) {
-	return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
-}
-
-const CellInfo* GetCellInfo(LayoutType type) {
+const CellInfo* GetCellInfo(CellType type) {
 	for (size_t i = 0; i < CELL_MAP_SIZE; ++i) {
 		if (cells[i].type == type) {
 			return &cells[i];
@@ -88,24 +95,24 @@ const CellInfo* GetCellInfo(LayoutType type) {
 	return 0;
 }
 
-Point CellDirection(LayoutType type) {
+Direction GetCellDirection(CellType type) {
 	switch (type) {
 		case LAYOUT_START_LEFT:
 		case LAYOUT_TURN_LEFT: 
-			return (Point) { -1, 0 };
+			return (Direction) { -1, 0 };
 		case LAYOUT_START_RIGHT:
 		case LAYOUT_TURN_RIGHT: 
-			return (Point) { 1, 0 };
+			return (Direction) { 1, 0 };
 		case LAYOUT_START_DOWN:
 		case LAYOUT_TURN_DOWN: 
-			return (Point) { 0, 1 };
+			return (Direction) { 0, 1 };
 		case LAYOUT_START_UP:
 		case LAYOUT_TURN_UP: 
-			return (Point) { 0, -1 };
+			return (Direction) { 0, -1 };
 		default:
 			break;
 	}
-	return (Point) { 0, 0 };
+	return (Direction) { 0, 0 };
 }
 
 void LoadTrack(const char* fileName, Track* track) {
@@ -115,6 +122,7 @@ void LoadTrack(const char* fileName, Track* track) {
 	
 	track->width = 0;
 	track->height = 0;
+	track->grid.laneCount = 0;
 	
 	for (int i = 0, x = 0; i < count; ++i) {
 		if (buf[i] == '\n') {
@@ -124,16 +132,22 @@ void LoadTrack(const char* fileName, Track* track) {
 			++track->height;
 			x = 0;
 		} else {
-			LayoutType type = GetCellType(buf[i]);
+			CellType type = GetCellType(buf[i]);
 			if (type == LAYOUT_UNKNOWN) {
 				dprintf(2, "Unknown cell type: '%c'\n", buf[i]);
 				exit(2);
+			}
+			if (IsCellStart(type)) {
+				++track->grid.laneCount;
+				if (isupper(buf[i])) {
+					track->grid.pos = (Point) { x, track->height };
+					track->grid.dir = GetCellDirection(type);
+				}
 			}
 			track->map[track->height][x].type = type;
 			track->map[track->height][x].clear = IsCellDriveable(type);
 			++x;
 		}
 	}
-	
-	SetStart(track);
+	track->grid.isClockwise = IsMovementClockwiseAt(track, track->grid.pos, track->grid.dir);
 }

@@ -10,8 +10,8 @@ void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {
 	car->dir = grid->dir;
 	car->lane = grid->laneCount;
 	
-	int offsetX = grid->dir.x * (slot - 1);
-	int offsetY = grid->dir.y * (slot - 1);
+	int offsetX = grid->dir.dx * (slot - 1);
+	int offsetY = grid->dir.dy * (slot - 1);
 	
 	car->pos.x -= offsetX;
 	car->pos.y -= offsetY;
@@ -23,11 +23,11 @@ void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {
 static Point GetNextPosition(const Car* car, MoveType type) {	
 	switch (type) {
 		case MOVE_FORWARD:
-			return (Point) {car->pos.x + car->dir.x, car->pos.y + car->dir.y};
+			return (Point) {car->pos.x + car->dir.dx, car->pos.y + car->dir.dy};
 		case MOVE_LEFT:
-			return (Point) {car->pos.x + car->dir.y, car->pos.y - car->dir.x};
+			return (Point) {car->pos.x + car->dir.dy, car->pos.y - car->dir.dx};
 		case MOVE_RIGHT:
-			return (Point) {car->pos.x - car->dir.y, car->pos.y + car->dir.x};
+			return (Point) {car->pos.x - car->dir.dy, car->pos.y + car->dir.dx};
 		default:
 			return car->pos;
 	}
@@ -59,13 +59,13 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 	car->pos = next;
 	
 	if (type == MOVE_LEFT) {
-		--car->lane;
+		car->lane += (track->grid.isClockwise ? -1 : 1);
 	} else if (type == MOVE_RIGHT) {
-		++car->lane;
+		car->lane += (track->grid.isClockwise ? 1 : -1);
 	}
 	
 	if (IsCellTurn(cell->type)) {
-		car->dir = CellDirection(cell->type);
+		car->dir = GetCellDirection(cell->type);
 	}
 	return true;
 }

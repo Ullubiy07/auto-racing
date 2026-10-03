@@ -63,9 +63,10 @@ static int IsCarAt(const Race* race, Point pos, const Car** res) {
 	return 0;
 }
 
-void InitRace(Race* race, Track* track, const Rules* rules) {
+void InitRace(Race* race, Track* track, const Rules* rules, const Judje* judje) {
 	race->track = track;
 	race->rules = rules;
+	race->judje = judje;
 	race->carCount = rules->teamCount * rules->carsInTeam;
 	if (race->carCount > MAX_CARS) {
 		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, race->carCount);
@@ -107,10 +108,10 @@ void DrawRace(const Race* race) {
 	for (int i = 0; i < race->track->height; ++i) {
 		for (int j = 0; j < race->track->width; ++j) {
 			if (IsCarAt(race, (Point){j, i}, &car)) {
-				dprintf(1, "\x1b[%d;1m%c \x1b[0m", car->team.color, car->id);
+				dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
 			} else {
-				LayoutType type = race->track->map[i][j].type;
-				dprintf(1, "%s", GetCellInfo(type)->outputSymbol);
+				CellType type = race->track->map[i][j].type;
+				dprintf(1, "%s", GetCellInfo(type)->outSymbol);
 			}
 		}
 		dprintf(1, "\n");

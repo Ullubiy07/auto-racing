@@ -31,39 +31,45 @@ typedef enum {
 	LAYOUT_TURN_LEFT,       // Поворот влево
 	LAYOUT_TURN_UP,         // Поворот вверх
 	LAYOUT_TURN_DOWN        // Поворот вниз
-} LayoutType;
+} CellType;
 
-bool IsCellTurn(LayoutType type);
+bool IsCellTurn(CellType type);
 
-bool IsCellStart(LayoutType type);
+bool IsCellStart(CellType type);
 
 // Структура, описывающая информацию о клетке
 typedef struct {
-	LayoutType type;  // Тип клетки 
-	char inputSymbol;  // Символ, обрабатываемый на входе
-	const char* outputSymbol;  // Символ для отображения
+	CellType type;          // Тип клетки 
+	const char* inSymbols;  // Символы, обрабатываемый на входе
+	const char* outSymbol;  // Символ для отображения
 } CellInfo;
 
 // Получить информацию о клетке
-const CellInfo* GetCellInfo(LayoutType type);
+const CellInfo* GetCellInfo(CellType type);
 
 typedef struct {
 	int x;
 	int y;
 } Point;
 
+typedef struct {
+	int dx;
+	int dy;
+} Direction;
+
 // Получить направление клетки
-Point CellDirection(LayoutType type);
+Direction GetCellDirection(CellType type);
 
 // Структура, описывающая стартовую решетку
 typedef struct {
-	Point pos;      // Координаты точки старта (x, y)
-	Point dir;      // Направление движения (dx, dy)
-	int laneCount;  // Количество стартовых полос (дорожек)
+	Point pos;         // Координаты точки старта (x, y)
+	Direction dir;     // Направление движения (dx, dy)
+	int laneCount;     // Количество стартовых полос (дорожек)
+	bool isClockwise;  // По часовой ли стрелке движение
 } Grid;
 
 typedef struct {
-	LayoutType type;
+	CellType type;
 	bool clear;
 } Cell;
 

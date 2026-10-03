@@ -20,9 +20,9 @@ typedef struct Car {
 	int id;     // Идентификатор машины
 	Team team;  // Команда, в которой состоит машина
 	
-	Point pos;  // Местоположение (x, y)
-	Point dir;  // Направление движения (dx, dy)
-	int lane;   // Номер дорожки
+	Point pos;      // Местоположение (x, y)
+	Direction dir;  // Направление движения (dx, dy)
+	int lane;       // Номер дорожки
 	
 	int is_finished;  // Завершила ли машина гонку
 	int is_out;       // Сошла ли машина с дистанции

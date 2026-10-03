@@ -3,6 +3,7 @@
 
 #include "car.h"
 #include "track.h"
+#include "judje.h"
 
 enum {
 	MAX_CARS = 26,
@@ -23,12 +24,13 @@ typedef struct {
 typedef struct {
 	Track* track;  // Гоночная трасса
 	const Rules* rules;  // Правила гонки
+	const Judje* judje;
 	int carCount;        // Количество машин
 	Car cars[MAX_CARS];  // Машины в порядке лидирования
 } Race;
 
 // Инициализировать гонку
-void InitRace(Race* race, Track* track, const Rules* rules);
+void InitRace(Race* race, Track* track, const Rules* rules, const Judje* judje);
 
 void StartRace(Race* race);
 
