@@ -17,12 +17,12 @@ int main() {
 		.startOrder = "ACEBDF",
 		
 		.rules = (JudjeRules) {
-			.lapsTotal = 3,
+			.lapsTotal = 1,
 			.maxRounds = 20
 		}
 	};
 	
-	LoadTrack(&track, "data/track1");
+	LoadTrack(&track, "data/track3");
 	InitRace(&race, &track, &settings);
 	
 	StartRace(&race);

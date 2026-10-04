@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
 	Cell map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Карта
 	Grid grid;   // Стартовая решетка
+	int length;
 	int height;  // Высота карты
 	int width;   // Ширина карты
 } Track;

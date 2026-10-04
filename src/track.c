@@ -40,7 +40,6 @@ static void CalcDistances(Track* track) {
 	for (int y = 0; y < track->height; ++y) {
 		for (int x = 0; x < track->width; ++x) {
 			if (IsCellStart(track->map[y][x].type)) {
-				track->map[y][x].distToFinish = 0;
 
 				Direction startDir = track->grid.dir;
 				Direction backDir = { -startDir.dx, -startDir.dy };
@@ -71,7 +70,7 @@ static void CalcDistances(Track* track) {
 			if (IsInsideTrack(track, newPos)) {
 				Cell* cell = &track->map[newPos.y][newPos.x];
 				
-				if (IsCellDriveable(cell->type) && cell->distToFinish == -1) {
+				if (IsCellDriveable(cell->type) && cell->distToFinish == -1 && (!IsCellStart(cell->type) || dist > 1)) {
 					cell->distToFinish = dist + 1;
 					QueuePush(&queue, newPos);
 				}
@@ -123,6 +122,7 @@ void LoadTrack(Track* track, const char* fileName) {
 	
 	track->width = 0;
 	track->height = 0;
+	track->length = 0;
 	track->grid.laneCount = 0;
 	
 	for (int i = 0, x = 0; i < count; ++i) {
@@ -158,4 +158,5 @@ void LoadTrack(Track* track, const char* fileName) {
 	
 	track->grid.isClockwise = IsMovementClockwiseAt(track, track->grid.pos, track->grid.dir);
 	CalcDistances(track);
+	track->length = track->map[track->grid.pos.y][track->grid.pos.x].distToFinish;
 }

@@ -4,6 +4,8 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "car.h"
+#include "judje.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -40,7 +42,7 @@ static void InitCars(Race* race) {
 		used[index] = 1;
 		
 		Team team = InitTeam(symbol, race->settings->carsInTeam);
-		InitCar(&race->cars[i], symbol, team, &race->track->grid, i + 1);
+		InitCar(&race->cars[i], symbol, team, race->track, i + 1);
 		
 		Point pos = race->cars[i].pos;
 		Cell* cell = &race->track->map[pos.y][pos.x];
@@ -81,11 +83,12 @@ void ClearScreen() {
 }
 
 static void DrawRace(const Race* race) {
+	ClearScreen();
 	for (int i = 0; i < race->track->height; ++i) {
 		for (int j = 0; j < race->track->width; ++j) {
 			Cell cell = race->track->map[i][j];
-			if (cell.entity.type == ENTITY_CAR) {
-				Car* car = cell.entity.data;
+			Car* car = cell.entity.data;
+			if (cell.entity.type == ENTITY_CAR && !car->isOut) {
 				dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
 			} else {
 				dprintf(1, "%s", GetCellInfo(cell.type)->outSymbol);
@@ -93,29 +96,38 @@ static void DrawRace(const Race* race) {
 		}
 		dprintf(1, "\n");
 	}
+	DrawLeaderBoard(&race->judje);
+	usleep(1000 * 50);
 }
 
 static void PlayRound(Race* race) {
-	int maxMoves;
+	int prevMoves = 0;
 	Judje* judje = &race->judje;
-	StartRound(judje);
-	
-	for (int i = 0; i < judje->carCount; ++i) {
-		int maxMoves = (i == 0 ? 4 : i == 1 ? maxMoves + 2 : maxMoves + 1);
+
+	int i = 0;
+	do {
+		Car* car = GetCurrentCar(judje);
 		
-		for (int j = 0; j < maxMoves; ++j) {
-			ClearScreen();
+		int movesLimit = (i == 0 ? 4 : i == 1 ? prevMoves + 2 : prevMoves + 1);
+		int movesDone = 0;
+		
+		while (movesDone < movesLimit && MoveCar(car, race->track)) {
+			++movesDone;
 			DrawRace(race);
-			if (!MoveCar(judje->moveOrder[i], race->track)) {
-				break;
-			}
-			usleep(1000 * 100);
 		}
-	}
+		
+		prevMoves = movesDone;
+		if (!movesDone) {
+			RegisterZeroMove(judje, car);
+		}
+		++i;
+	} while (NextTurn(judje));
 }
 
 void StartRace(Race* race) {
+	DrawRace(race);
 	while (!IsRaceOver(&race->judje)) {
 		PlayRound(race);
 	}
+	AnnounceWinner(&race->judje);
 }

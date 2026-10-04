@@ -1,25 +1,29 @@
 #include <stdlib.h>
 
 #include "car.h"
+#include "cell.h"
 
-void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {	
+void InitCar(Car* car, int id, Team team, const Track* track, int slot) {	
 	car->id = id;
 	car->team = team;
-	car->pos = grid->pos;
-	car->dir = grid->dir;
-	car->lane = grid->laneCount;
+	car->pos = track->grid.pos;
+	car->dir = track->grid.dir;
+	car->lane = track->grid.laneCount;
 	
-	int offsetX = grid->dir.dx * (slot - 1);
-	int offsetY = grid->dir.dy * (slot - 1);
+	int offsetX = track->grid.dir.dx * slot;
+	int offsetY = track->grid.dir.dy * slot;
 	
 	car->pos.x -= offsetX;
 	car->pos.y -= offsetY;
 	
 	car->prevPos = (Point) {-1, -1};
 	
+	car->distToFinish = track->length + slot;
+	car->trackLength = track->length;
 	car->laps = 0;
-	car->is_finished = 0;
-	car->is_out = 0;
+	
+	car->hasPassedStart = false;
+	car->isOut = false;
 }
 
 static Point GetNextPosition(const Car* car, MoveType type) {	
@@ -67,13 +71,26 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 	SetCellEntity(newCell, ENTITY_CAR, car);
 	
 	car->prevPos = car->pos;
+	car->distToFinish = track->map[car->pos.y][car->pos.x].distToFinish;
 	car->pos = next;
-	car->laps += (IsCellStart(newCell->type) && !IsCellStart(oldCell->type));
 	
+	// Подсчет кругов
+	if (IsCellStart(newCell->type) && !IsCellStart(oldCell->type)) {
+		if (car->hasPassedStart) {
+			++car->laps;
+		}
+		car->hasPassedStart = true;
+	}
+	
+	if (!car->hasPassedStart) {
+		car->distToFinish += track->length;
+	}
+	
+	// Обновление номера дорожки
 	if (type == MOVE_LEFT) {
-		car->lane += (track->grid.isClockwise ? -1 : 1);
-	} else if (type == MOVE_RIGHT) {
 		car->lane += (track->grid.isClockwise ? 1 : -1);
+	} else if (type == MOVE_RIGHT) {
+		car->lane += (track->grid.isClockwise ? -1 : 1);
 	}
 	
 	if (IsCellTurn(newCell->type)) {

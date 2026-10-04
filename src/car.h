@@ -24,14 +24,17 @@ typedef struct Car {
 	Direction dir;  // Направление движения (dx, dy)
 	int lane;       // Номер дорожки
 
-	int laps;         // Число проеханных кругов
+	int distToFinish;  // Расстояние до финиша
+	int laps;          // Число проеханных кругов
 	Point prevPos;
-	int is_finished;  // Завершила ли машина гонку
-	int is_out;       // Сошла ли машина с дистанции
+	int trackLength;
+	
+	bool hasPassedStart;
+	bool isOut;         // Сошла ли машина с дистанции
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, int id, Team team, const Grid* grid, int slot);
+void InitCar(Car* car, int id, Team team, const Track* track, int slot);
 
 // Движение машины в свободную клетку
 bool MoveCar(Car* car, Track* track);

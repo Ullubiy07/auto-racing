@@ -19,16 +19,20 @@ typedef struct {
 	const JudjeRules* rules;
 	int roundsPlayed;  // Количество сыгранных раундов
 	
-	bool IsRaceOver;
-	
-	Car* moveOrder[MAX_CARS];
+	Car* leaderBoard[MAX_CARS];
 	int carCount;
+	int curCarIndex;
 } Judje;
 
 void InitJudje(Judje* judje, Car* cars, int carCount, const JudjeRules* rules);
 
-void StartRound(Judje* judje);
+void DrawLeaderBoard(const Judje* judje);
 
 bool IsRaceOver(Judje* judje);
+
+Car* GetCurrentCar(const Judje* judje);
+bool NextTurn(Judje* judje);
+void RegisterZeroMove(Judje* judje, Car* car);
+void AnnounceWinner(const Judje* judje);
 
 #endif
