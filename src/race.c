@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "race.h"
-#include "judje.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -25,7 +24,7 @@ static void InitCars(Race* race) {
 	int used[MAX_CARS] = {0};
 	
 	for (int i = 0; i < race->carCount; ++i) {
-		char symbol = race->rules->startOrder[i];
+		char symbol = race->settings->startOrder[i];
 		char index = symbol - 'A';
 
 		if (index >= race->carCount || symbol < 'A') {
@@ -40,7 +39,7 @@ static void InitCars(Race* race) {
 		}
 		used[index] = 1;
 		
-		Team team = InitTeam(symbol, race->rules->carsInTeam);
+		Team team = InitTeam(symbol, race->settings->carsInTeam);
 		InitCar(&race->cars[i], symbol, team, &race->track->grid, i + 1);
 		
 		Point pos = race->cars[i].pos;
@@ -53,27 +52,27 @@ static void InitCars(Race* race) {
 	}
 }
 
-void InitRace(Race* race, Track* track, const Rules* rules) {
+void InitRace(Race* race, Track* track, const RaceSettings* settings) {
 	race->track = track;
-	race->rules = rules;
-	race->carCount = rules->teamCount * rules->carsInTeam;
+	race->settings = settings;
+	race->carCount = settings->teamCount * settings->carsInTeam;
 	if (race->carCount > MAX_CARS) {
 		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, race->carCount);
 		exit(2);
 	}
-	if (rules->teamCount > MAX_TEAMS) {
-		dprintf(2, "Teams limit exceeded, max: %d, got: %d\n", MAX_TEAMS, rules->teamCount);
+	if (settings->teamCount > MAX_TEAMS) {
+		dprintf(2, "Teams limit exceeded, max: %d, got: %d\n", MAX_TEAMS, settings->teamCount);
 		exit(2);
 	}
 	
-	int size = strlen(rules->startOrder);
+	int size = strlen(settings->startOrder);
 	if (size != race->carCount) {
 		dprintf(2, "Invalid start order size, need: %d, got: %d\n", race->carCount, size);
 		exit(2);
 	}
 	
 	InitCars(race);
-	InitJudje(&race->judje, race->cars, race->carCount, race->rules->maxRounds);
+	InitJudje(&race->judje, race->cars, race->carCount, &race->settings->rules);
 }
 
 void ClearScreen() {

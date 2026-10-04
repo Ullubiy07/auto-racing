@@ -23,9 +23,9 @@ typedef struct Car {
 	Point pos;      // Местоположение (x, y)
 	Direction dir;  // Направление движения (dx, dy)
 	int lane;       // Номер дорожки
-	
+
+	int laps;         // Число проеханных кругов
 	Point prevPos;
-	
 	int is_finished;  // Завершила ли машина гонку
 	int is_out;       // Сошла ли машина с дистанции
 } Car;

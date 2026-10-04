@@ -11,14 +11,21 @@ enum {
 };
 
 typedef struct {
+	int maxRounds;  // Предельное число раундов
+	int lapsTotal;  // Всего кругов
+} JudjeRules;
+
+typedef struct {
+	const JudjeRules* rules;
 	int roundsPlayed;  // Количество сыгранных раундов
-	int maxRounds;     // Предельное число раундов
+	
+	bool IsRaceOver;
 	
 	Car* moveOrder[MAX_CARS];
 	int carCount;
 } Judje;
 
-void InitJudje(Judje* judje, Car* cars, int carCount,  int maxRounds);
+void InitJudje(Judje* judje, Car* cars, int carCount, const JudjeRules* rules);
 
 void StartRound(Judje* judje);
 

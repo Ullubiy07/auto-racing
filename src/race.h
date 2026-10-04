@@ -10,22 +10,21 @@ typedef struct {
 	const char* startOrder;  // Порядок старта: массив символов машин, выстроенных вдоль внешней дорожки
 	int teamCount;           // Количество команд
 	int carsInTeam;          // Количество машин в команде
-	int maxLaps;             // Число кругов
-	int maxRounds;           // Предельное число раундов
-	int bonus;               // Бонус
-} Rules;
+	
+	JudjeRules rules;        // Правила гонки
+} RaceSettings;
 
 // Структура, описывающая гонку
 typedef struct {
 	Track* track;  // Гоночная трасса
-	const Rules* rules;  // Правила гонки
+	const RaceSettings* settings;  // Правила гонки
 	Judje judje;
 	int carCount;        // Количество машин
 	Car cars[MAX_CARS];  // Машины в порядке лидирования
 } Race;
 
 // Инициализировать гонку
-void InitRace(Race* race, Track* track, const Rules* rules);
+void InitRace(Race* race, Track* track, const RaceSettings* settings);
 
 // Начать гонку
 void StartRace(Race* race);

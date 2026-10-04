@@ -17,6 +17,7 @@ void InitCar(Car* car, int id, Team team, const Grid* grid, int slot) {
 	
 	car->prevPos = (Point) {-1, -1};
 	
+	car->laps = 0;
 	car->is_finished = 0;
 	car->is_out = 0;
 }
@@ -67,6 +68,7 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 	
 	car->prevPos = car->pos;
 	car->pos = next;
+	car->laps += (IsCellStart(newCell->type) && !IsCellStart(oldCell->type));
 	
 	if (type == MOVE_LEFT) {
 		car->lane += (track->grid.isClockwise ? -1 : 1);

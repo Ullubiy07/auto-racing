@@ -1,12 +1,13 @@
 #include "judje.h"
 
-void InitJudje(Judje* judje, Car* cars, int carCount, int maxRounds) {
+void InitJudje(Judje* judje, Car* cars, int carCount, const JudjeRules* rules) {
+	judje->rules = rules;
+	judje->carCount = carCount;
+	
 	for (int i = 0; i < carCount; ++i) {
 		judje->moveOrder[i] = &cars[i];
 	}
-		
-	judje->carCount = carCount;
-	judje->maxRounds = maxRounds;
+	
 	judje->roundsPlayed = 0;
 }
 
@@ -15,5 +16,5 @@ void StartRound(Judje* judje) {
 }
 
 bool IsRaceOver(Judje* judje) {
-	return judje->roundsPlayed >= judje->maxRounds;
+	return judje->roundsPlayed >= judje->rules->maxRounds || judje->IsRaceOver;
 }
