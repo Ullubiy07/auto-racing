@@ -99,6 +99,7 @@ static void DrawRace(const Race* race) {
 static void PlayRound(Race* race) {
 	int maxMoves;
 	Judje* judje = &race->judje;
+	StartRound(judje);
 	
 	for (int i = 0; i < judje->carCount; ++i) {
 		int maxMoves = (i == 0 ? 4 : i == 1 ? maxMoves + 2 : maxMoves + 1);
@@ -116,7 +117,6 @@ static void PlayRound(Race* race) {
 
 void StartRace(Race* race) {
 	while (!IsRaceOver(&race->judje)) {
-		StartRound(&race->judje);
 		PlayRound(race);
 	}
 }

@@ -11,13 +11,13 @@ int main() {
 	Track track;
 	Rules rules = (Rules){
 		.carsInTeam = 2,
-		.teamCount = 4,
+		.teamCount = 3,
 		.maxLaps = 3,
-		.maxRounds = 4,
-		.startOrder = "ACEGBDFH"
+		.maxRounds = 20,
+		.startOrder = "ACEBDF"
 	};
 	
-	LoadTrack("data/track1", &track);
+	LoadTrack(&track, "data/track1");
 	InitRace(&race, &track, &rules);
 	
 	StartRace(&race);

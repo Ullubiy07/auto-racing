@@ -7,13 +7,13 @@ void InitJudje(Judje* judje, Car* cars, int carCount, int maxRounds) {
 		
 	judje->carCount = carCount;
 	judje->maxRounds = maxRounds;
-	judje->curRound = 0;
+	judje->roundsPlayed = 0;
 }
 
 void StartRound(Judje* judje) {
-	++judje->curRound;
+	++judje->roundsPlayed;
 }
 
 bool IsRaceOver(Judje* judje) {
-	return judje->curRound > judje->maxRounds;
+	return judje->roundsPlayed >= judje->maxRounds;
 }

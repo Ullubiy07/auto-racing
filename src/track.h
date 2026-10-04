@@ -4,7 +4,7 @@
 #include "cell.h"
 
 enum {
-	MAX_MAP_HEIGHT = 30,
+	MAX_MAP_HEIGHT = 40,
 	MAX_MAP_WIDTH  = 50
 };
 
@@ -30,6 +30,6 @@ typedef struct {
 } Track;
 
 // Загрузить трассу из файла
-void LoadTrack(const char* fileName, Track* track);
+void LoadTrack(Track* track, const char* fileName);
 
 #endif

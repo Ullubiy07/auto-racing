@@ -42,7 +42,7 @@ static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
 	return count;
 }
 
-void LoadTrack(const char* fileName, Track* track) {
+void LoadTrack(Track* track, const char* fileName) {
 	const size_t bufSize = MAX_MAP_HEIGHT * MAX_MAP_WIDTH;
 	char buf[bufSize];
 	int count = LoadFile(fileName, buf, bufSize);
@@ -71,6 +71,11 @@ void LoadTrack(const char* fileName, Track* track) {
 					track->grid.dir = GetCellDirection(type);
 				}
 			}
+			if (track->height >= MAX_MAP_HEIGHT || x >= MAX_MAP_WIDTH) {
+				dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
+				exit(2);
+			}
+			
 			track->map[track->height][x].type = type;
 			SetCellEntity(&track->map[track->height][x], ENTITY_NONE, NULL);
 			++x;

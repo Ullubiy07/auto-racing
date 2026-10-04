@@ -11,8 +11,8 @@ enum {
 };
 
 typedef struct {
-	int curRound;     // Текущий раунд
-	int maxRounds;    // Предельное число раундов
+	int roundsPlayed;  // Количество сыгранных раундов
+	int maxRounds;     // Предельное число раундов
 	
 	Car* moveOrder[MAX_CARS];
 	int carCount;
