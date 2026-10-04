@@ -6,6 +6,80 @@
 
 #include "track.h"
 
+typedef struct {
+	Point data[MAX_MAP_HEIGHT * MAX_MAP_WIDTH];
+	int head;
+	int tail;
+} Queue;
+
+static void QueuePush(Queue* queue, Point pos) {
+	queue->data[queue->tail++] = pos;
+}
+
+static Point QueuePop(Queue* queue) {
+	return queue->data[queue->head++];
+}
+
+static bool IsQueueEmpty(const Queue* queue) {
+	return queue->head >= queue->tail;
+}
+
+static bool IsInsideTrack(const Track* track, Point pos) {
+	return pos.x >= 0 && pos.x < track->width && pos.y >= 0 && pos.y < track->height;
+}
+
+static void CalcDistances(Track* track) {
+	Queue queue = { .head = 0, .tail = 0 };
+	
+	for (int y = 0; y < track->height; ++y) {
+		for (int x = 0; x < track->width; ++x) {
+			track->map[y][x].distToFinish = -1;
+		}
+	}
+	
+	for (int y = 0; y < track->height; ++y) {
+		for (int x = 0; x < track->width; ++x) {
+			if (IsCellStart(track->map[y][x].type)) {
+				track->map[y][x].distToFinish = 0;
+
+				Direction startDir = track->grid.dir;
+				Direction backDir = { -startDir.dx, -startDir.dy };
+				Point backPos = { x + backDir.dx, y + backDir.dy };
+
+				if (IsInsideTrack(track, backPos) &&
+					IsCellDriveable(track->map[backPos.y][backPos.x].type) &&
+					track->map[backPos.y][backPos.x].distToFinish == -1) 
+				{
+					track->map[backPos.y][backPos.x].distToFinish = 1;
+					QueuePush(&queue, backPos);
+				}
+			}
+		}
+	}
+
+	static const Direction dirs[] = {
+		{ -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }
+	};
+	
+	while (!IsQueueEmpty(&queue)) {
+		Point pos = QueuePop(&queue);
+		int dist = track->map[pos.y][pos.x].distToFinish;
+		
+		for (int i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
+			Point newPos = { pos.x + dirs[i].dx, pos.y + dirs[i].dy };
+			
+			if (IsInsideTrack(track, newPos)) {
+				Cell* cell = &track->map[newPos.y][newPos.x];
+				
+				if (IsCellDriveable(cell->type) && cell->distToFinish == -1) {
+					cell->distToFinish = dist + 1;
+					QueuePush(&queue, newPos);
+				}
+			}
+		}
+	}
+}
+
 static bool IsMovementClockwiseAt(const Track* track, Point pos, Direction dir) {
 	while (pos.y >= 0 && pos.y < track->height &&
 		pos.x >= 0 && pos.x < track->width) 
@@ -81,5 +155,7 @@ void LoadTrack(Track* track, const char* fileName) {
 			++x;
 		}
 	}
+	
 	track->grid.isClockwise = IsMovementClockwiseAt(track, track->grid.pos, track->grid.dir);
+	CalcDistances(track);
 }

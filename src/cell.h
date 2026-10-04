@@ -67,6 +67,7 @@ typedef struct {
 typedef struct {
 	CellType type;
 	Entity entity;
+	int distToFinish;
 } Cell;
 
 void ClearCell(Cell* cell);
