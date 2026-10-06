@@ -23,6 +23,8 @@ static Team InitTeam(char carSymbol, int carsInTeam) {
 
 static void InitCars(Race* race) {
 	int used[MAX_CARS] = {0};
+	Point pos = race->track->grid.pos;
+	Cell* start = &race->track->map[pos.y][pos.x];
 	
 	for (int i = 0; i < race->carCount; ++i) {
 		char symbol = race->settings->startOrder[i];
@@ -41,10 +43,12 @@ static void InitCars(Race* race) {
 		used[index] = 1;
 		
 		Team team = InitTeam(symbol, race->settings->carsInTeam);
-		InitCar(&race->cars[i], symbol, team, race->track, i + 1);
+				
 		
-		Point pos = race->cars[i].pos;
-		Cell* cell = &race->track->map[pos.y][pos.x];
+		start = start->road.back;
+		InitCar(&race->cars[i], symbol, team, start);
+		
+		Cell* cell = race->cars[i].cell;
 		if (!IsCellDriveable(cell->type)) {
 			dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
 			exit(2);
@@ -112,7 +116,7 @@ static void PlayRound(Race* race) {
 		int movesLimit = (i == 0 ? 4 : i == 1 ? prevMoves + 2 : prevMoves + 1);
 		int movesDone = 0;
 		
-		while (movesDone < movesLimit && MoveCar(car, race->track)) {
+		while (movesDone < movesLimit && MoveCar(car)) {
 			++movesDone;
 			DrawRace(race);
 		}

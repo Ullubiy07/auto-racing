@@ -37,6 +37,11 @@ bool IsCellDriveable(CellType type);
 CellType GetCellType(char inputSymbol);
 
 typedef struct {
+	int x;
+	int y;
+} Point;
+
+typedef struct {
 	int dx;
 	int dy;
 } Direction;
@@ -65,9 +70,20 @@ typedef struct {
 } Entity;
 
 typedef struct {
+	int lane;
+	int distToFinish;
+	struct cell_t* forward;
+	struct cell_t* back;
+	struct cell_t* left;
+	struct cell_t* right;
+} Road;
+
+typedef struct cell_t {
+	int x;
+	int y;
 	CellType type;
 	Entity entity;
-	int distToFinish;
+	Road road;
 } Cell;
 
 void ClearCell(Cell* cell);

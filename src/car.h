@@ -1,7 +1,9 @@
 #ifndef CAR_H
 #define CAR_H
 
-#include "track.h"
+#include "cell.h"
+
+#include <stddef.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
@@ -20,12 +22,8 @@ typedef enum {
 typedef struct Car {
 	int id;               // Идентификатор машины
 	Team team;            // Команда, в которой состоит машина
-	
-	Point pos;            // Местоположение (x, y)
-	Direction dir;        // Направление движения (dx, dy)
-	int lane;             // Номер дорожки
+	Cell* cell;           // Местоположение (x, y)
 
-	int distToFinish;     // Расстояние до финиша
 	int laps;             // Число пройденных кругов
 	Point prevPos;        // Предыдущее местоположение
 	
@@ -34,9 +32,12 @@ typedef struct Car {
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, int id, Team team, const Track* track, int slot);
+void InitCar(Car* car, int id, Team team, Cell* cell);
 
 // Движение машины в свободную клетку
-bool MoveCar(Car* car, Track* track);
+bool MoveCar(Car* car);
+
+// Получить валидные варианты хода
+size_t GetValidMoves(Car* car, MoveType* moves);
 
 #endif

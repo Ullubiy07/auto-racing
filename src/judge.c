@@ -5,19 +5,30 @@
 #include "judge.h"
 
 static int CompareCars(const void* a, const void* b) {
-	const Car* car1 = *(const Car**)a;
-	const Car* car2 = *(const Car**)b;
+	const Car* carA = *(const Car**)a;
+	const Car* carB = *(const Car**)b;
 	
-	if (car1->isOut != car2->isOut) {
-		return car1->isOut - car2->isOut;
+	Road* roadA = &carA->cell->road;
+	Road* roadB = &carB->cell->road;
+	
+	if (carA->isOut != carB->isOut) {
+		return carA->isOut - carB->isOut;
 	}
-	if (car1->laps != car2->laps) {
-		return car2->laps - car1->laps;
+	
+	if ((!carA->hasPassedStart && carB->hasPassedStart)) {
+		return 1;
 	}
-	if (car1->distToFinish != car2->distToFinish) {
-		return car1->distToFinish - car2->distToFinish;
+	if ((!carB->hasPassedStart && carA->hasPassedStart)) {
+		return -1;
 	}
-	return car1->lane - car2->lane;
+	
+	if (carA->laps != carB->laps) {
+		return carB->laps - carA->laps;
+	}
+	if (roadA->distToFinish != roadB->distToFinish) {
+		return roadA->distToFinish - roadB->distToFinish;
+	}
+	return roadA->lane - roadB->lane;
 }
 
 static void UpdateLeaderBoard(Judge* judje) {
@@ -42,6 +53,7 @@ void InitJudge(Judge* judje, Car* cars, int carCount, const JudgeRules* rules) {
 Car* GetCurrentCar(const Judge* judje) {
 	assert(judje->turn >= 0);
 	assert(judje->turn < judje->carsInCurrentRound);
+	assert(!judje->leaderBoard[judje->turn]->isOut);
 	
 	return judje->leaderBoard[judje->turn];
 }
@@ -82,8 +94,8 @@ bool IsRaceOver(const Judge* judje) {
 	}
 	
 	return judje->activeCarCount == 0 ||
-	judje->roundsPlayed >= judje->rules->maxRounds ||
-	hasWinner;
+		   judje->roundsPlayed >= judje->rules->maxRounds ||
+		   hasWinner;
 }
 
 void AnnounceWinner(const Judge* judje) {
@@ -93,7 +105,7 @@ void AnnounceWinner(const Judge* judje) {
 }
 
 void DrawLeaderBoard(const Judge* judje) {
-	dprintf(2, "=============LEADER BOARD===============\n");
+	dprintf(2, "======================LEADER BOARD=====================\n");
 	dprintf(2, "%-5s |  %-3s  | %-3s  | %-5s | %-5s | %-5s  | %-5s\n", 
 			"Place", "Car", "ID", "Laps", "Lane", "Dist", "State");
 	
@@ -105,11 +117,11 @@ void DrawLeaderBoard(const Judge* judje) {
 				car->team.color, "🏎",
 				car->id,
 				car->laps, 
-		        car->lane,
-				car->distToFinish,
+		        car->cell->road.lane,
+				car->cell->road.distToFinish,
 				car->isOut ? "OUT" : "IN RACE");
 		
-		if (i == judje->turn) {
+		if (i == judje->turn && !IsRoundOver(judje)) {
 			dprintf(2, " <-");
 		}
 		dprintf(2, "\n");
