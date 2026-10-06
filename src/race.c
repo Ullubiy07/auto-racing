@@ -4,8 +4,6 @@
 #include <unistd.h>
 
 #include "race.h"
-#include "car.h"
-#include "judje.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -74,7 +72,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
 	}
 	
 	InitCars(race);
-	InitJudje(&race->judje, race->cars, race->carCount, &race->settings->rules);
+	InitJudge(&race->judje, race->cars, race->carCount, &race->settings->rules);
 }
 
 void ClearScreen() {
@@ -101,11 +99,13 @@ static void DrawRace(const Race* race) {
 }
 
 static void PlayRound(Race* race) {
-	int prevMoves = 0;
-	Judje* judje = &race->judje;
-
-	int i = 0;
-	do {
+	int prevMoves = 0, i = 0;
+	Judge* judje = &race->judje;
+	
+	StartRound(judje);
+	
+	while (!IsRoundOver(judje)) {
+		
 		Car* car = GetCurrentCar(judje);
 		
 		int movesLimit = (i == 0 ? 4 : i == 1 ? prevMoves + 2 : prevMoves + 1);
@@ -118,10 +118,14 @@ static void PlayRound(Race* race) {
 		
 		prevMoves = movesDone;
 		if (!movesDone) {
-			RegisterZeroMove(judje, car);
+			RegisterZeroMove(judje);
 		}
+		
+		NextTurn(judje);
 		++i;
-	} while (NextTurn(judje));
+	}
+	
+	EndRound(judje);
 }
 
 void StartRace(Race* race) {

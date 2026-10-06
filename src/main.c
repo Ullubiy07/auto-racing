@@ -1,7 +1,7 @@
 #include <time.h>
 #include <stdlib.h>
 
-#include "judje.h"
+#include "judge.h"
 #include "track.h"
 #include "race.h"
 
@@ -16,13 +16,13 @@ int main() {
 		.teamCount = 3,
 		.startOrder = "ACEBDF",
 		
-		.rules = (JudjeRules) {
-			.lapsTotal = 1,
-			.maxRounds = 20
+		.rules = (JudgeRules) {
+			.lapsTotal = 2,
+			.maxRounds = 100
 		}
 	};
 	
-	LoadTrack(&track, "data/track3");
+	LoadTrack(&track, "data/track2");
 	InitRace(&race, &track, &settings);
 	
 	StartRace(&race);

@@ -3,7 +3,7 @@
 
 #include "car.h"
 #include "track.h"
-#include "judje.h"
+#include "judge.h"
 
 // Структура, описывающая правила гонки (входные параметры)
 typedef struct {
@@ -11,14 +11,14 @@ typedef struct {
 	int teamCount;           // Количество команд
 	int carsInTeam;          // Количество машин в команде
 	
-	JudjeRules rules;        // Правила гонки
+	JudgeRules rules;        // Правила гонки
 } RaceSettings;
 
 // Структура, описывающая гонку
 typedef struct {
 	Track* track;  // Гоночная трасса
 	const RaceSettings* settings;  // Правила гонки
-	Judje judje;
+	Judge judje;
 	int carCount;        // Количество машин
 	Car cars[MAX_CARS];  // Машины в порядке лидирования
 } Race;
