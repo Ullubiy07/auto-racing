@@ -5,22 +5,21 @@
 #include "track.h"
 #include "judge.h"
 
-// Структура, описывающая правила гонки (входные параметры)
+// Настройки гонки
 typedef struct {
-	const char* startOrder;  // Порядок старта: массив символов машин, выстроенных вдоль внешней дорожки
+	const char* startOrder;  // Порядок старта: массив символов машин вдоль внешней дорожки
 	int teamCount;           // Количество команд
 	int carsInTeam;          // Количество машин в команде
-	
 	JudgeRules rules;        // Правила гонки
 } RaceSettings;
 
-// Структура, описывающая гонку
+// Состояние гонки
 typedef struct {
-	Track* track;  // Гоночная трасса
-	const RaceSettings* settings;  // Правила гонки
-	Judge judje;
-	int carCount;        // Количество машин
-	Car cars[MAX_CARS];  // Машины в порядке лидирования
+	Track* track;                  // Гоночная трасса
+	const RaceSettings* settings;  // Настройки гонки
+	Judge judge;                   // Судья, контролирующий гонку
+	Car cars[MAX_CARS];            // Машины, участвующие в гонке
+	int carCount;                  // Количество машин
 } Race;
 
 // Инициализировать гонку

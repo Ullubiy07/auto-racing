@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "car.h"
-#include "cell.h"
 
 void InitCar(Car* car, int id, Team team, const Track* track, int slot) {	
 	car->id = id;
@@ -19,7 +18,6 @@ void InitCar(Car* car, int id, Team team, const Track* track, int slot) {
 	car->prevPos = (Point) {-1, -1};
 	
 	car->distToFinish = track->length + slot;
-	car->trackLength = track->length;
 	car->laps = 0;
 	
 	car->hasPassedStart = false;
@@ -63,16 +61,15 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 		return false;
 	}
 	
-	Point next = GetNextPosition(car, type);
+	Point newPos = GetNextPosition(car, type);
 	Cell* oldCell = &track->map[car->pos.y][car->pos.x];
-	Cell* newCell = &track->map[next.y][next.x];
+	Cell* newCell = &track->map[newPos.y][newPos.x];
 	
 	ClearCell(oldCell);
 	SetCellEntity(newCell, ENTITY_CAR, car);
 	
 	car->prevPos = car->pos;
-	car->distToFinish = track->map[car->pos.y][car->pos.x].distToFinish;
-	car->pos = next;
+	car->pos = newPos;
 	
 	// Подсчет кругов
 	if (IsCellStart(newCell->type) && !IsCellStart(oldCell->type)) {
@@ -82,6 +79,8 @@ static bool MoveByType(Car* car, Track* track, MoveType type) {
 		car->hasPassedStart = true;
 	}
 	
+	// Расчет дистанции до финиша
+	car->distToFinish = newCell->distToFinish;
 	if (!car->hasPassedStart) {
 		car->distToFinish += track->length;
 	}

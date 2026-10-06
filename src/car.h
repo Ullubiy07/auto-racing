@@ -3,34 +3,34 @@
 
 #include "track.h"
 
-// Структура, описывающая команду, участвующую в гонке
+// Команда, в которой состоят машины
 typedef struct Team {
 	int id;     // Идентификатор команды (1...)
 	int color;  // Цвет команды
 } Team;
 
+// Возможные ходы машины
 typedef enum {
 	MOVE_LEFT,
 	MOVE_RIGHT,
 	MOVE_FORWARD
 } MoveType;
 
-// Структура, описывающая автомобиль
+// Машина, участвующая в гонке
 typedef struct Car {
-	int id;     // Идентификатор машины
-	Team team;  // Команда, в которой состоит машина
+	int id;               // Идентификатор машины
+	Team team;            // Команда, в которой состоит машина
 	
-	Point pos;      // Местоположение (x, y)
-	Direction dir;  // Направление движения (dx, dy)
-	int lane;       // Номер дорожки
+	Point pos;            // Местоположение (x, y)
+	Direction dir;        // Направление движения (dx, dy)
+	int lane;             // Номер дорожки
 
-	int distToFinish;  // Расстояние до финиша
-	int laps;          // Число проеханных кругов
-	Point prevPos;
-	int trackLength;
+	int distToFinish;     // Расстояние до финиша
+	int laps;             // Число пройденных кругов
+	Point prevPos;        // Предыдущее местоположение
 	
-	bool hasPassedStart;
-	bool isOut;         // Сошла ли машина с дистанции
+	bool hasPassedStart;  // Прошла ли машина линию старта
+	bool isOut;           // Сошла ли машина с дистанции
 } Car;
 
 // Инициализация машины на стартовой решетке

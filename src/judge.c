@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "judge.h"
 
@@ -8,7 +9,7 @@ static int CompareCars(const void* a, const void* b) {
 	const Car* car2 = *(const Car**)b;
 	
 	if (car1->isOut != car2->isOut) {
-		return car1->isOut ? 1 : -1;
+		return car1->isOut - car2->isOut;
 	}
 	if (car1->laps != car2->laps) {
 		return car2->laps - car1->laps;
@@ -39,9 +40,9 @@ void InitJudge(Judge* judje, Car* cars, int carCount, const JudgeRules* rules) {
 }
 
 Car* GetCurrentCar(const Judge* judje) {
-	if (judje->turn < 0 || judje->turn >= judje->carsInCurrentRound) {
-		return NULL;
-	}
+	assert(judje->turn >= 0);
+	assert(judje->turn < judje->carsInCurrentRound);
+	
 	return judje->leaderBoard[judje->turn];
 }
 
@@ -51,10 +52,13 @@ void NextTurn(Judge* judje) {
 
 void RegisterZeroMove(Judge* judje) {
 	Car* car = GetCurrentCar(judje);
-	if (car && !car->isOut) {
-		car->isOut = true;
-		--judje->activeCarCount;
-	}
+	
+	assert(car);
+	assert(!car->isOut);
+	assert(judje->activeCarCount);
+	
+	car->isOut = true;
+	--judje->activeCarCount;
 }
 
 void StartRound(Judge* judje) {
@@ -78,8 +82,8 @@ bool IsRaceOver(const Judge* judje) {
 	}
 	
 	return judje->activeCarCount == 0 ||
-		   judje->roundsPlayed >= judje->rules->maxRounds ||
-		   hasWinner;
+	judje->roundsPlayed >= judje->rules->maxRounds ||
+	hasWinner;
 }
 
 void AnnounceWinner(const Judge* judje) {
@@ -110,4 +114,5 @@ void DrawLeaderBoard(const Judge* judje) {
 		}
 		dprintf(2, "\n");
 	}
+	dprintf(2, "\nRound %d\n", judje->roundsPlayed + 1);
 }

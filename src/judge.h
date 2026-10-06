@@ -10,19 +10,19 @@ enum {
 	MAX_TEAMS = 6
 };
 
-// Структура, описывающая правила, которыми руководствуется судья
+// Правила, которыми руководствуется судья
 typedef struct {
 	int maxRounds;  // Предельное число раундов
 	int lapsTotal;  // Всего кругов
 } JudgeRules;
 
-// Структура, описывающая судью, который следит за ходом гонки
+// Судья, отслеживающий ход гонки и таблицу лидеров
 typedef struct {
 	const JudgeRules* rules;
-	int roundsPlayed;  // Количество сыгранных раундов
-	int turn;          // Индекс текущего хода
+	int roundsPlayed;  			 // Количество сыгранных раундов
+	int turn;          			 // Индекс текущего хода
 	
-	Car* leaderBoard[MAX_CARS];  // Доска лидеров
+	Car* leaderBoard[MAX_CARS];  // Таблица лидеров
 	int carCount;                // Общее число машин
 	int activeCarCount;          // Количество активных машин (не сошедших)
 	int carsInCurrentRound;      // Количество активных машин на начало текущего раунда
@@ -31,31 +31,31 @@ typedef struct {
 // Инициализировать судью
 void InitJudge(Judge* judje, Car* cars, int carCount, const JudgeRules* rules);
 
-// Закончилась ли гонка
+// Проверить, закончилась ли гонка
 bool IsRaceOver(const Judge* judje);
 
-// Закончился ли раунд
+// Проверить, закончился ли раунд
 bool IsRoundOver(const Judge* judje);
 
-// Начать раунд
+// Начать новый раунд
 void StartRound(Judge* judje);
 
-// Закончить раунд
+// Закончить текущий раунд
 void EndRound(Judge* judje);
 
 // Получить машину текущего хода
 Car* GetCurrentCar(const Judge* judje);
 
-// Зафиксировать следующий ход
+// Перейти к следующему ходу
 void NextTurn(Judge* judje);
 
-// Зарегистрировать нулевой ход
+// Зарегистрировать нулевой ход (сход машины с дистанции)
 void RegisterZeroMove(Judge* judje);
 
-// Вывести доску лидеров на дисплей
+// Вывести таблицу лидеров на экран
 void DrawLeaderBoard(const Judge* judje);
 
-// Объявить победителя гонки, выведя на дисплей
+// Объявить победителя гонки
 void AnnounceWinner(const Judge* judje);
 
 #endif

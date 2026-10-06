@@ -17,7 +17,7 @@ int main() {
 		.startOrder = "ACEBDF",
 		
 		.rules = (JudgeRules) {
-			.lapsTotal = 2,
+			.lapsTotal = 1,
 			.maxRounds = 100
 		}
 	};

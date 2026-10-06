@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,7 +73,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
 	}
 	
 	InitCars(race);
-	InitJudge(&race->judje, race->cars, race->carCount, &race->settings->rules);
+	InitJudge(&race->judge, race->cars, race->carCount, &race->settings->rules);
 }
 
 void ClearScreen() {
@@ -94,18 +95,18 @@ static void DrawRace(const Race* race) {
 		}
 		dprintf(1, "\n");
 	}
-	DrawLeaderBoard(&race->judje);
+	DrawLeaderBoard(&race->judge);
 	usleep(1000 * 50);
 }
 
 static void PlayRound(Race* race) {
 	int prevMoves = 0, i = 0;
-	Judge* judje = &race->judje;
+	Judge* judje = &race->judge;
 	
 	StartRound(judje);
+	DrawRace(race);
 	
 	while (!IsRoundOver(judje)) {
-		
 		Car* car = GetCurrentCar(judje);
 		
 		int movesLimit = (i == 0 ? 4 : i == 1 ? prevMoves + 2 : prevMoves + 1);
@@ -117,7 +118,7 @@ static void PlayRound(Race* race) {
 		}
 		
 		prevMoves = movesDone;
-		if (!movesDone) {
+		if (movesDone == 0) {
 			RegisterZeroMove(judje);
 		}
 		
@@ -126,12 +127,12 @@ static void PlayRound(Race* race) {
 	}
 	
 	EndRound(judje);
+	DrawRace(race);
 }
 
 void StartRace(Race* race) {
-	DrawRace(race);
-	while (!IsRaceOver(&race->judje)) {
+	while (!IsRaceOver(&race->judge)) {
 		PlayRound(race);
 	}
-	AnnounceWinner(&race->judje);
+	AnnounceWinner(&race->judge);
 }
