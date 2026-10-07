@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "cell.h"
 
 static Team InitTeam(char carSymbol, int carsInTeam) {
 	static const int TEAM_COLORS[] = {
@@ -46,14 +47,13 @@ static void InitCars(Race* race) {
 				
 		
 		start = start->road.back;
-		InitCar(&race->cars[i], symbol, team, start);
-		
-		Cell* cell = race->cars[i].cell;
-		if (!IsCellDriveable(cell->type)) {
+		if (!start || !IsCellFree(start)) {
 			dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
 			exit(2);
 		}
-		SetCellEntity(cell, ENTITY_CAR, &race->cars[i]);
+		
+		InitCar(&race->cars[i], symbol, team, start);
+		SetCellEntity(start, ENTITY_CAR, &race->cars[i]);
 	}
 }
 
@@ -104,30 +104,33 @@ static void DrawRace(const Race* race) {
 }
 
 static void PlayRound(Race* race) {
-	int prevMoves = 0, i = 0;
 	Judge* judje = &race->judge;
 	
 	StartRound(judje);
 	DrawRace(race);
 	
+	MoveType moves[3 * MAX_CARS];
+	int prevMoveCost = 0;
+	
 	while (!IsRoundOver(judje)) {
 		Car* car = GetCurrentCar(judje);
 		
-		int movesLimit = (i == 0 ? 4 : i == 1 ? prevMoves + 2 : prevMoves + 1);
-		int movesDone = 0;
+		int maxBudget = (judje->turn == 0 ? 4 : judje->turn == 1 ? prevMoveCost + 2 : prevMoveCost + 1);
+		int actualCost = 0;
 		
-		while (movesDone < movesLimit && MoveCar(car)) {
-			++movesDone;
+		size_t movesDone = BuildRoute(car, moves, 3 * MAX_CARS, maxBudget);
+		for (int i = 0; i < movesDone; ++i) {
+			actualCost += GetMoveCost(car->cell, moves[i]);
+			MakeMove(car, moves[i]);
 			DrawRace(race);
 		}
 		
-		prevMoves = movesDone;
+		prevMoveCost = actualCost;
 		if (movesDone == 0) {
 			RegisterZeroMove(judje);
 		}
 		
 		NextTurn(judje);
-		++i;
 	}
 	
 	EndRound(judje);

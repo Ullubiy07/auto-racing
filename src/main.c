@@ -12,9 +12,9 @@ int main() {
 	Track track;
 	
 	RaceSettings settings = {
-		.carsInTeam = 2,
+		.carsInTeam = 3,
 		.teamCount = 3,
-		.startOrder = "ACEBDF",
+		.startOrder = "ACEBDFGHI",
 		
 		.rules = (JudgeRules) {
 			.lapsTotal = 1,
@@ -22,7 +22,7 @@ int main() {
 		}
 	};
 	
-	LoadTrack(&track, "data/track2");
+	LoadTrack(&track, "data/track1");
 	InitRace(&race, &track, &settings);
 	
 	StartRace(&race);

@@ -15,14 +15,15 @@ typedef struct Team {
 typedef enum {
 	MOVE_LEFT,
 	MOVE_RIGHT,
-	MOVE_FORWARD
+	MOVE_FORWARD,
+	MOVE_NONE
 } MoveType;
 
 // Машина, участвующая в гонке
 typedef struct Car {
 	int id;               // Идентификатор машины
 	Team team;            // Команда, в которой состоит машина
-	Cell* cell;           // Местоположение (x, y)
+	const Cell* cell;           // Местоположение (x, y)
 
 	int laps;             // Число пройденных кругов
 	Point prevPos;        // Предыдущее местоположение
@@ -32,12 +33,12 @@ typedef struct Car {
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, int id, Team team, Cell* cell);
+void InitCar(Car* car, int id, Team team, const Cell* cell);
 
-// Движение машины в свободную клетку
-bool MoveCar(Car* car);
+size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget);
 
-// Получить валидные варианты хода
-size_t GetValidMoves(Car* car, MoveType* moves);
+int GetMoveCost(const Cell* cell, MoveType type);
+
+bool MakeMove(Car* car, MoveType type);
 
 #endif

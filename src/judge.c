@@ -8,8 +8,8 @@ static int CompareCars(const void* a, const void* b) {
 	const Car* carA = *(const Car**)a;
 	const Car* carB = *(const Car**)b;
 	
-	Road* roadA = &carA->cell->road;
-	Road* roadB = &carB->cell->road;
+	const Road* roadA = &carA->cell->road;
+	const Road* roadB = &carB->cell->road;
 	
 	if (carA->isOut != carB->isOut) {
 		return carA->isOut - carB->isOut;
@@ -51,8 +51,7 @@ void InitJudge(Judge* judje, Car* cars, int carCount, const JudgeRules* rules) {
 }
 
 Car* GetCurrentCar(const Judge* judje) {
-	assert(judje->turn >= 0);
-	assert(judje->turn < judje->carsInCurrentRound);
+	assert(judje->turn >= 0 && judje->turn < judje->carsInCurrentRound);
 	assert(!judje->leaderBoard[judje->turn]->isOut);
 	
 	return judje->leaderBoard[judje->turn];

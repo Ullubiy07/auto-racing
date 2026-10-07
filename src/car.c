@@ -2,7 +2,7 @@
 
 #include "car.h"
 
-void InitCar(Car* car, int id, Team team, Cell* cell) {	
+void InitCar(Car* car, int id, Team team, const Cell* cell) {	
 	car->id = id;
 	car->team = team;
 	car->cell = cell;
@@ -15,40 +15,58 @@ void InitCar(Car* car, int id, Team team, Cell* cell) {
 	car->isOut = false;
 }
 
-static Cell* GetNextPosition(const Car* car, MoveType type) {
+static const Cell* GetNextCell(const Cell* cell, MoveType type) {
 	switch (type) {
 		case MOVE_FORWARD:
-			return car->cell->road.forward;
+			return cell->road.forward;
 		case MOVE_LEFT:
-			return car->cell->road.left;
+			return cell->road.left;
 		case MOVE_RIGHT:
-			return car->cell->road.right;
+			return cell->road.right;
+		case MOVE_NONE:
+			return cell;
 	}
 	return NULL;
 }
 
-static bool CanMove(const Car* car, MoveType type) {
-	Cell* newCell = GetNextPosition(car, type);
+int GetMoveCost(const Cell* cell, MoveType type) {
+	switch (type) {
+		case MOVE_FORWARD:
+			return 1;
+		case MOVE_LEFT:
+			return cell->road.lane < cell->road.left->road.lane ? 3 : 1;
+		case MOVE_RIGHT:
+			return cell->road.lane < cell->road.right->road.lane ? 3 : 1;
+		case MOVE_NONE:
+			return 0;
+	}
+	return 0;
+}
+
+static bool CanMove(const Cell* cell, MoveType type) {
+	const Cell* newCell = GetNextCell(cell, type);
 	if (!newCell) {
 		return false;
 	}
 	
-	bool currentIsTurn = IsCellTurn(car->cell->type);
+	bool currentIsTurn = IsCellTurn(cell->type);
 	if ((type == MOVE_LEFT || type == MOVE_RIGHT) && currentIsTurn) {
 		return false;
 	}
 	return IsCellFree(newCell);
 }
 
-static bool MoveByType(Car* car, MoveType type) {
-	if (!CanMove(car, type)) {
+static void MoveCarToCell(Car* car, const Cell* newCell) {
+	car->prevPos = (Point) { car->cell->x, car->cell->y };
+	car->cell = newCell;
+}
+
+bool MakeMove(Car* car, MoveType type) {
+	if (!CanMove(car->cell, type)) {
 		return false;
 	}
 	
-	Cell* newCell = GetNextPosition(car, type);
-	
-	ClearCell(car->cell);
-	SetCellEntity(newCell, ENTITY_CAR, car);
+	const Cell* newCell = GetNextCell(car->cell, type);
 	
 	// Подсчет кругов
 	if (IsCellStart(newCell->type) && !IsCellStart(car->cell->type)) {
@@ -58,20 +76,20 @@ static bool MoveByType(Car* car, MoveType type) {
 		car->hasPassedStart = true;
 	}
 	
-	car->prevPos = (Point) {car->cell->x, car->cell->y};
-	car->cell = newCell;
-	
+	ClearCell((Cell*) car->cell);
+	MoveCarToCell(car, newCell);
+	SetCellEntity((Cell*) newCell, ENTITY_CAR, car);
 	return true;
 }
 
-size_t GetValidMoves(Car* car, MoveType* moves) {
+static size_t GetValidMoves(const Car* car, MoveType* moves, int budget) {
 	MoveType types[] = { MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT };
 	size_t count = 0;
 	
 	for (int i = 0; i < 3; ++i) {
-		Cell* nextPos = GetNextPosition(car, types[i]);
-		if (nextPos && !(nextPos->x == car->prevPos.x && nextPos->y == car->prevPos.y) && 
-			CanMove(car, types[i])) 
+		const Cell* nextCell = GetNextCell(car->cell, types[i]);
+		if (nextCell && !(nextCell->x == car->prevPos.x && nextCell->y == car->prevPos.y) && 
+			CanMove(car->cell, types[i]) && GetMoveCost(car->cell, types[i]) <= budget) 
 		{
 			moves[count++] = types[i];
 		}
@@ -79,16 +97,30 @@ size_t GetValidMoves(Car* car, MoveType* moves) {
 	return count;
 }
 
-bool MakeRandomMove(Car* car) {
+static MoveType GetRandomMove(const Car* car, int budget) {
 	MoveType moves[3];
-	size_t count = GetValidMoves(car, moves);
+	size_t count = GetValidMoves(car, moves, budget);
 	if (count == 0) {
-		return false;
+		return MOVE_NONE;
 	}
-	int num = rand() % count;
-	return MoveByType(car, moves[num]);
+	return moves[rand() % count];
 }
 
-bool MoveCar(Car* car) {
-	return MakeRandomMove(car);
+size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget) {
+	// int budget = rand() % maxBudget + 1;
+	int budget = maxBudget;
+	Car dummy = *car;
+	int movesDone = 0;
+	
+	while (movesDone < movesLimit && budget > 0) {
+		MoveType move = GetRandomMove(&dummy, budget);
+		if (move == MOVE_NONE) {
+			break;
+		}
+		
+		budget -= GetMoveCost(dummy.cell, move);
+		MoveCarToCell(&dummy, GetNextCell(dummy.cell, move));
+		moves[movesDone++] = move;
+	}
+	return movesDone;
 }
