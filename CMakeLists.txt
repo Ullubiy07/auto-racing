@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.4.3)
 
-project(racing)
+project(race)
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_C_STANDARD 23)
 
