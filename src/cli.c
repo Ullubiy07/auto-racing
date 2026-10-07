@@ -269,7 +269,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     }
 
     if (!hasMap) {
-        ParseMapFile(settings, "../data/track2");
+        ParseMapFile(settings, "../data/track1");
     }
 
     if (settings->startOrderSize != settings->carCount) {
