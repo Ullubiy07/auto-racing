@@ -98,7 +98,7 @@ bool IsRoundOver(const Judge* judje) {
 bool IsRaceOver(const Judge* judje) {
 	bool hasWinner = false;
 	for (int i = 0; i < judje->carCount; ++i) {
-		hasWinner |= (judje->leaderBoard[i]->laps >= judje->rules->lapsTotal);
+		hasWinner |= (judje->leaderBoard[i]->laps >= judje->rules->maxLaps);
 	}
 	
 	return judje->activeCarCount == 0 ||
@@ -108,22 +108,23 @@ bool IsRaceOver(const Judge* judje) {
 
 void AnnounceWinner(const Judge* judje) {
 	Car* winner = judje->leaderBoard[0];
-	dprintf(2, "\n\x1b[%d;1mWinner: 🏎, (ID=%d)\x1b[0m\n",
-			winner->team.color, winner->id);
+	dprintf(2, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n",
+			winner->team.color, winner->driverName);
 }
 
 void DrawLeaderBoard(const Judge* judje) {
 	dprintf(2, "======================LEADER BOARD=====================\n");
-	dprintf(2, "%-5s |  %-3s  | %-3s  | %-5s | %-5s | %-5s  | %-5s\n", 
-			"Place", "Car", "ID", "Laps", "Lane", "Dist", "State");
+	dprintf(2, "%-5s |  %-3s  | %-8s | %-8s | %-5s | %-5s | %-5s  | %-5s\n", 
+			"Place", "Car", "Team", "Driver", "Laps", "Lane", "Dist", "State");
 	
 	for (int i = 0; i < judje->carCount; ++i) {
 		Car* car = judje->leaderBoard[i];
 		
-		dprintf(2, "  %-3d |  \x1b[%d;1m%-6s\x1b[0m  | %-4d | %-5d | %-5d |  %-5d | %-5s", 
+		dprintf(2, "  %-3d |  \x1b[%d;1m%-6s\x1b[0m  | %-8s | %-8s | %-5d | %-5d |  %-5d | %-5s", 
 				i + 1, 
 				car->team.color, "🏎",
-				car->id,
+				car->team.name,
+				car->driverName,
 				car->laps, 
 		        car->cell->road.lane,
 				car->cell->road.distToFinish,

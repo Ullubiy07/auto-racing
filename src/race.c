@@ -5,21 +5,42 @@
 #include <unistd.h>
 
 #include "race.h"
-#include "cell.h"
 
-static Team InitTeam(char carSymbol, int carsInTeam) {
-	static const int TEAM_COLORS[] = {
-		31,  // Красный
-		32,  // Зеленый
-		33,  // Желтый
-		34,  // Синий
-		35,  // Оранжевый
-		36   // Фиолетовый
+void InitDefaultSettings(RaceSettings* settings) {
+	settings->teams[0] = (TeamConfig) {
+		.name = "Ferrari",
+		.driverCount = 1,
+		.drivers = {"Ullubiy"},
+		.color = 31,
 	};
-	Team team;
-	team.id = (carSymbol - 'A') / carsInTeam;
-	team.color = TEAM_COLORS[team.id % MAX_TEAMS];
-	return team;
+	settings->teams[1] = (TeamConfig) {
+		.name = "Red Bull",
+		.driverCount = 1,
+		.drivers = {"Gosha"},
+		.color = 33,
+	};
+	settings->teamCount = 2;
+	settings->carCount = 2;
+	
+	settings->rules.maxLaps = 5;
+	settings->rules.maxRounds = 80;
+	
+	settings->startOrderSize = settings->carCount;
+	snprintf(settings->startOrder[0], MAX_DRIVER_NAME_SIZE, "%s", "Ullubiy");
+	snprintf(settings->startOrder[1], MAX_DRIVER_NAME_SIZE, "%s", "Gosha");
+}
+
+static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
+	for (int i = 0; i < settings->teamCount; ++i) {
+		const TeamConfig* team = &settings->teams[i];
+		
+		for (int j = 0; j < team->driverCount; ++j) {
+			if (strcmp(team->drivers[j], driverName)) {
+				return team; 
+			}
+		}
+	}
+	return NULL;
 }
 
 static void InitCars(Race* race) {
@@ -28,23 +49,15 @@ static void InitCars(Race* race) {
 	Cell* start = &race->track->map[pos.y][pos.x];
 	
 	for (int i = 0; i < race->carCount; ++i) {
-		char symbol = race->settings->startOrder[i];
-		char index = symbol - 'A';
-
-		if (index >= race->carCount || symbol < 'A') {
-			dprintf(2, "Expected symbols between '%c' and '%c', got: '%c'\n", 
-					'A', 'A' + race->carCount - 1, symbol);
+		const char* driver = race->settings->startOrder[i];
+		const TeamConfig* teamCfg = FindTeamByDriver(race->settings, driver);
+		
+		if (!teamCfg) {
+			dprintf(2, "Driver %s has no team\n", driver);
 			exit(2);
 		}
 		
-		if (used[index]) {
-			dprintf(2, "Dublicate symbol '%c' in start order\n", symbol);
-			exit(2);
-		}
-		used[index] = 1;
-		
-		Team team = InitTeam(symbol, race->settings->carsInTeam);
-				
+		Team team = (Team) { .color = teamCfg->color, .name = (char*) teamCfg->name };
 		
 		start = start->road.back;
 		if (!start || !IsCellFree(start)) {
@@ -52,7 +65,7 @@ static void InitCars(Race* race) {
 			exit(2);
 		}
 		
-		InitCar(&race->cars[i], symbol, team, start);
+		InitCar(&race->cars[i], (char*) driver, team, start);
 		SetCellEntity(start, ENTITY_CAR, &race->cars[i]);
 	}
 }
@@ -60,21 +73,7 @@ static void InitCars(Race* race) {
 void InitRace(Race* race, Track* track, const RaceSettings* settings) {
 	race->track = track;
 	race->settings = settings;
-	race->carCount = settings->teamCount * settings->carsInTeam;
-	if (race->carCount > MAX_CARS) {
-		dprintf(2, "Cars limit exceeded, max: %d, got: %d\n", MAX_CARS, race->carCount);
-		exit(2);
-	}
-	if (settings->teamCount > MAX_TEAMS) {
-		dprintf(2, "Teams limit exceeded, max: %d, got: %d\n", MAX_TEAMS, settings->teamCount);
-		exit(2);
-	}
-	
-	int size = strlen(settings->startOrder);
-	if (size != race->carCount) {
-		dprintf(2, "Invalid start order size, need: %d, got: %d\n", race->carCount, size);
-		exit(2);
-	}
+	race->carCount = settings->carCount;
 	
 	InitCars(race);
 	InitJudge(&race->judge, race->cars, race->carCount, &race->settings->rules);

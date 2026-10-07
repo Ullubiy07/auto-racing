@@ -7,7 +7,7 @@
 
 // Команда, в которой состоят машины
 typedef struct Team {
-	int id;     // Идентификатор команды (1...)
+	char* name;
 	int color;  // Цвет команды
 } Team;
 
@@ -21,7 +21,7 @@ typedef enum {
 
 // Машина, участвующая в гонке
 typedef struct Car {
-	int id;               // Идентификатор машины
+	char* driverName;
 	Team team;            // Команда, в которой состоит машина
 	const Cell* cell;           // Местоположение (x, y)
 
@@ -34,7 +34,7 @@ typedef struct Car {
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, int id, Team team, const Cell* cell);
+void InitCar(Car* car, char* driverName, Team team, const Cell* cell);
 
 size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget);
 

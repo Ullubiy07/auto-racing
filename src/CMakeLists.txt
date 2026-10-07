@@ -4,6 +4,9 @@ set(CMAKE_BUILD_TYPE BUILD)
 
 add_executable(racing
     main.c
+    
+    cli.h
+    cli.c
 
 	race.h
 	race.c

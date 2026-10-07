@@ -1,30 +1,26 @@
 #include <time.h>
 #include <stdlib.h>
 
-#include "judge.h"
 #include "track.h"
 #include "race.h"
+#include "cli.h"
 
-int main() {
+int main(int argc, char* argv[]) {
 	srand(time(0));
 	
 	Race race;
 	Track track;
+	RaceSettings settings;
 	
-	RaceSettings settings = {
-		.carsInTeam = 3,
-		.teamCount = 3,
-		.startOrder = "ACEBDFGHI",
-		
-		.rules = (JudgeRules) {
-			.lapsTotal = 1,
-			.maxRounds = 100
-		}
-	};
+	if (!ParseCLIArgs(&settings, argc, argv)) {
+		exit(2);
+	}
+	if (settings.teamCount == 0) {
+		InitDefaultSettings(&settings);
+	}
 	
 	LoadTrack(&track, "data/track2");
 	InitRace(&race, &track, &settings);
-	
 	StartRace(&race);
 	return 0;
 }

@@ -2,8 +2,8 @@
 
 #include "car.h"
 
-void InitCar(Car* car, int id, Team team, const Cell* cell) {	
-	car->id = id;
+void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {	
+	car->driverName = driverName;
 	car->team = team;
 	car->cell = cell;
 	
