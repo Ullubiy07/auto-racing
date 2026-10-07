@@ -5,7 +5,6 @@
 #include "race.h"
 #include "cli.h"
 
-
 int main(int argc, char* argv[]) {
 	srand(time(NULL));
 	
@@ -17,9 +16,8 @@ int main(int argc, char* argv[]) {
 		exit(2);
 	}
 	
-	LoadTrack(&track, "data/track2");
+	LoadTrack(&track, settings.mapFile);
 	InitRace(&race, &track, &settings);
 	StartRace(&race);
 	return 0;
 }
-

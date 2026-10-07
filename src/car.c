@@ -112,6 +112,7 @@ size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget
 	int budget = maxBudget;
 	Car dummy = *car;
 	int movesDone = 0;
+	dummy.prevPos = (Point) {dummy.cell->x, dummy.cell->y};
 	
 	while (movesDone < movesLimit && budget > 0) {
 		MoveType move = GetRandomMove(&dummy, budget);

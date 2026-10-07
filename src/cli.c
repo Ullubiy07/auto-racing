@@ -139,13 +139,23 @@ static bool ParseStartOrder(RaceSettings* settings, const char* arg) {
 	return true;
 }
 
+static bool ParseMapFile(RaceSettings* settings, const char* arg) {
+	if (snprintf(settings->mapFile, sizeof(settings->mapFile), "%s", arg) >= sizeof(settings->mapFile)) {
+		dprintf(2, "Map file path is too long: %zu chars\n", sizeof(settings->mapFile) - 1);
+		return false;
+	}
+	return true;
+}
+
 static void PrintHelpUsage(const char *progName) {
 	printf("Usage: %s [OPTION]...\n", progName);
 	printf("Options:\n");
-	printf("  -t, --team \"NAME:COLOR:DRIVER1,DRIVER2,...\"  Add a team with drivers\n");
-	printf("  -s, --start \"DRIVER1,DRIVER2,...\"            Specify start order by driver names\n");
-	printf("  -r, --rounds N                                 Set max rounds (default 80)\n");
-	printf("  -l, --laps N                                   Set max laps (default 5)\n");
+	printf("  -t, --team  \"NAME:COLOR:DRIVER1,DRIVER2,...\"   Add a team with drivers\n");
+	printf("  -s, --start \"DRIVER1,DRIVER2,...\"              Specify start order by driver names (default: random)\n");
+	printf("  -r, --rounds N                                 Set max rounds (default: 80)\n");
+	printf("  -l, --laps N                                   Set max laps (default: 5)\n");
+	printf("  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
+	printf("  -m, --map FILE                                 Specify track map\n");
 	printf("  -h, --help                                     Print help message\n");
 }
 
@@ -188,12 +198,15 @@ static bool MakeRandomStartOrder(RaceSettings* settings) {
 bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 	bool hasTeams = false;
 	bool hasStartOrder = false;
+	bool hasMap = false;
 	
 	static struct option longOptions[] = {
 		{"team",   required_argument, NULL, 't'},
 		{"start",  required_argument, NULL, 's'},
 		{"rounds", required_argument, NULL, 'r'},
 		{"laps",   required_argument, NULL, 'l'},
+		{"delay",  required_argument, NULL, 'd'},
+		{"map",    required_argument, NULL, 'm'},
 		{"help",   no_argument,       NULL, 'h'},
 		{NULL,     0,                 NULL, 0}
 	};
@@ -201,6 +214,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 	
 	settings->rules.maxLaps = 5;
 	settings->rules.maxRounds = 80;
+	settings->delayMs = 50;
 	
 	while ((opt = getopt_long(argc, argv, "t:s:r:l:h", longOptions, NULL)) != -1) {
 		switch (opt) {
@@ -225,6 +239,17 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 			case 'l':
 				settings->rules.maxLaps = atoi(optarg);
 				break;
+			
+			case 'd':
+				settings->delayMs = atoi(optarg);
+				break;
+			
+			case 'm':
+				if (!ParseMapFile(settings, optarg)) {
+					return false;
+				}
+				hasMap = true;
+				break;
 				
 			case 'h':
 			case '?':
@@ -237,11 +262,21 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 	}
 	
 	if (!hasTeams) {
-		ParseTeam(settings, "Red Bull:Red:Gosha");
-		ParseTeam(settings, "Ferrari:Cyan:Ullubiy");
-		ParseStartOrder(settings, "Ullubiy,Gosha");
-	} else if (!hasStartOrder) {
-		return MakeRandomStartOrder(settings);
+		ParseTeam(settings, "Red Bull:cyan:Max,Liam");
+		ParseTeam(settings, "Ferrari:red:Charles,Lewis");
+		ParseTeam(settings, "Mercedes:blue:George,Kimi");
+		ParseTeam(settings, "McLaren:yellow:Lando,Oscar");
+		ParseTeam(settings, "Aston Martin:green:Fernando,Lance");
+		ParseTeam(settings, "Alpine:purple:Pierre,Esteban");
+		ParseTeam(settings, "Williams:white:Alex,Carlos");
+		MakeRandomStartOrder(settings);
+		
+	} else if (!hasStartOrder && !MakeRandomStartOrder(settings)) {
+		return false;
+	}
+	
+	if (!hasMap) {
+		ParseMapFile(settings, "../data/track2");
 	}
 	
 	if (settings->startOrderSize != settings->carCount) {

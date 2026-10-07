@@ -28,6 +28,9 @@ typedef struct {
 	int startOrderSize;
 	
 	JudgeRules rules;        // Правила гонки
+	
+	int delayMs;
+	char mapFile[250];
 } RaceSettings;
 
 // Состояние гонки

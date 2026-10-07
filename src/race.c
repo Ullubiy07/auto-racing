@@ -79,7 +79,7 @@ static void DrawRace(const Race* race) {
 		dprintf(1, "\n");
 	}
 	DrawLeaderBoard(&race->judge);
-	usleep(1000 * 50);
+	usleep(race->settings->delayMs * 1000);
 }
 
 static void PlayRound(Race* race) {
