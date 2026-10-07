@@ -209,7 +209,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     settings->rules.maxRounds = 80;
     settings->delayMs = 50;
 
-    while ((opt = getopt_long(argc, argv, "t:s:r:l:h", longOptions, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "t:s:r:l:d:m:h", longOptions, NULL)) != -1) {
         switch (opt) {
         case 't':
             if (!ParseTeam(settings, optarg)) {
