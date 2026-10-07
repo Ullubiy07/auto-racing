@@ -123,5 +123,5 @@ void DrawLeaderBoard(const Judge* judje) {
         }
         dprintf(2, "\n");
     }
-    dprintf(2, "\nRound played: %d\n", judje->roundsPlayed);
+    dprintf(2, "\nRounds played: %d\n", judje->roundsPlayed);
 }
