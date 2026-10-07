@@ -100,18 +100,18 @@ bool IsRaceOver(const Judge* judje) {
 
 void AnnounceWinner(const Judge* judje) {
     Car* winner = judje->leaderBoard[0];
-    dprintf(2, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
+    dprintf(1, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
 }
 
 void DrawLeaderBoard(const Judge* judje) {
-    dprintf(2, "================================LEADER BOARD=================================\n");
-    dprintf(2, " %-5s | %-3s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Car", "Team", "Driver", "Laps",
+    dprintf(1, "================================LEADER BOARD=================================\n");
+    dprintf(1, " %-5s | %-3s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Car", "Team", "Driver", "Laps",
             "Lane", "Dist", "State");
 
     for (int i = 0; i < judje->carCount; ++i) {
         Car* car = judje->leaderBoard[i];
 
-        dprintf(2, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s", i + 1,
+        dprintf(1, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s", i + 1,
                 car->team.color, "🏎", car->team.name, car->driverName, car->laps, car->cell->road.lane,
                 car->cell->road.distToFinish,
                 car->isBlocked && !car->isOut  ? "BLOCKED"
@@ -119,9 +119,9 @@ void DrawLeaderBoard(const Judge* judje) {
                                                : "IN RACE");
 
         if (i == judje->turn && !IsRoundOver(judje)) {
-            dprintf(2, " <-");
+            dprintf(1, " <-");
         }
-        dprintf(2, "\n");
+        dprintf(1, "\n");
     }
-    dprintf(2, "\nRounds played: %d\n", judje->roundsPlayed);
+    dprintf(1, "\nRounds played: %d\n", judje->roundsPlayed);
 }
