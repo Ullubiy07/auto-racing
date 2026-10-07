@@ -91,6 +91,10 @@ static void DrawRace(const Race* race) {
 		for (int j = 0; j < race->track->width; ++j) {
 			Cell cell = race->track->map[i][j];
 			Car* car = cell.entity.data;
+			
+			// Машина сошла с дистанции но клетка не очищена
+			assert(!(cell.entity.type == ENTITY_CAR && car->isOut));
+			
 			if (cell.entity.type == ENTITY_CAR && !car->isOut) {
 				dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
 			} else {

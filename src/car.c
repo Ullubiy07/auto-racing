@@ -12,6 +12,7 @@ void InitCar(Car* car, int id, Team team, const Cell* cell) {
 	car->laps = 0;
 	
 	car->hasPassedStart = false;
+	car->isBlocked = false;
 	car->isOut = false;
 }
 

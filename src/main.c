@@ -22,7 +22,7 @@ int main() {
 		}
 	};
 	
-	LoadTrack(&track, "data/track1");
+	LoadTrack(&track, "data/track2");
 	InitRace(&race, &track, &settings);
 	
 	StartRace(&race);

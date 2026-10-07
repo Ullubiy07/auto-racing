@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "judge.h"
+#include "cell.h"
 
 static int CompareCars(const void* a, const void* b) {
 	const Car* carA = *(const Car**)a;
@@ -66,9 +67,10 @@ void RegisterZeroMove(Judge* judje) {
 	
 	assert(car);
 	assert(!car->isOut);
+	assert(!car->isBlocked);
 	assert(judje->activeCarCount);
 	
-	car->isOut = true;
+	car->isBlocked = true;
 	--judje->activeCarCount;
 }
 
@@ -79,6 +81,13 @@ void StartRound(Judge* judje) {
 
 void EndRound(Judge* judje) {
 	++judje->roundsPlayed;
+	for (int i = 0; i < judje->carsInCurrentRound; ++i) {
+		Car* car = judje->leaderBoard[i];
+		if (car->isBlocked) {
+			car->isOut = true;
+			ClearCell((Cell*) car->cell);
+		}
+	}
 	UpdateLeaderBoard(judje);
 }
 
@@ -118,7 +127,7 @@ void DrawLeaderBoard(const Judge* judje) {
 				car->laps, 
 		        car->cell->road.lane,
 				car->cell->road.distToFinish,
-				car->isOut ? "OUT" : "IN RACE");
+				car->isBlocked && !car->isOut ? "BLOCKED" : car->isBlocked && car->isOut ? "OUT" : "IN RACE");
 		
 		if (i == judje->turn && !IsRoundOver(judje)) {
 			dprintf(2, " <-");
