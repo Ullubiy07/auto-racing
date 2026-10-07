@@ -6,8 +6,8 @@
 #include "judge.h"
 
 enum {
-	MAX_TEAM_NAME_SIZE = 32,
-	MAX_DRIVER_NAME_SIZE = 32,
+	MAX_TEAM_NAME_SIZE = 13,
+	MAX_DRIVER_NAME_SIZE = 13,
 	MAX_CARS_IN_TEAM = 4
 };
 
@@ -41,9 +41,6 @@ typedef struct {
 
 // Инициализировать гонку
 void InitRace(Race* race, Track* track, const RaceSettings* settings);
-
-// Инициализировать настройки гонки по умолчанию
-void InitDefaultSettings(RaceSettings* settings);
 
 // Начать гонку
 void StartRace(Race* race);

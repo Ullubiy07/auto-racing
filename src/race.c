@@ -6,36 +6,12 @@
 
 #include "race.h"
 
-void InitDefaultSettings(RaceSettings* settings) {
-	settings->teams[0] = (TeamConfig) {
-		.name = "Ferrari",
-		.driverCount = 1,
-		.drivers = {"Ullubiy"},
-		.color = 31,
-	};
-	settings->teams[1] = (TeamConfig) {
-		.name = "Red Bull",
-		.driverCount = 1,
-		.drivers = {"Gosha"},
-		.color = 33,
-	};
-	settings->teamCount = 2;
-	settings->carCount = 2;
-	
-	settings->rules.maxLaps = 5;
-	settings->rules.maxRounds = 80;
-	
-	settings->startOrderSize = settings->carCount;
-	snprintf(settings->startOrder[0], MAX_DRIVER_NAME_SIZE, "%s", "Ullubiy");
-	snprintf(settings->startOrder[1], MAX_DRIVER_NAME_SIZE, "%s", "Gosha");
-}
-
 static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
 	for (int i = 0; i < settings->teamCount; ++i) {
 		const TeamConfig* team = &settings->teams[i];
 		
 		for (int j = 0; j < team->driverCount; ++j) {
-			if (strcmp(team->drivers[j], driverName)) {
+			if (strcmp(team->drivers[j], driverName) == 0) {
 				return team; 
 			}
 		}

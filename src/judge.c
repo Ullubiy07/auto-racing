@@ -114,13 +114,13 @@ void AnnounceWinner(const Judge* judje) {
 
 void DrawLeaderBoard(const Judge* judje) {
 	dprintf(2, "======================LEADER BOARD=====================\n");
-	dprintf(2, "%-5s |  %-3s  | %-8s | %-8s | %-5s | %-5s | %-5s  | %-5s\n", 
+	dprintf(2, "%-5s |  %-3s  | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", 
 			"Place", "Car", "Team", "Driver", "Laps", "Lane", "Dist", "State");
 	
 	for (int i = 0; i < judje->carCount; ++i) {
 		Car* car = judje->leaderBoard[i];
 		
-		dprintf(2, "  %-3d |  \x1b[%d;1m%-6s\x1b[0m  | %-8s | %-8s | %-5d | %-5d |  %-5d | %-5s", 
+		dprintf(2, "  %-3d |  \x1b[%d;1m%-6s\x1b[0m  | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s", 
 				i + 1, 
 				car->team.color, "🏎",
 				car->team.name,

@@ -5,18 +5,16 @@
 #include "race.h"
 #include "cli.h"
 
+
 int main(int argc, char* argv[]) {
-	srand(time(0));
+	srand(time(NULL));
 	
 	Race race;
 	Track track;
 	RaceSettings settings;
-	
+
 	if (!ParseCLIArgs(&settings, argc, argv)) {
 		exit(2);
-	}
-	if (settings.teamCount == 0) {
-		InitDefaultSettings(&settings);
 	}
 	
 	LoadTrack(&track, "data/track2");
@@ -24,3 +22,4 @@ int main(int argc, char* argv[]) {
 	StartRace(&race);
 	return 0;
 }
+
