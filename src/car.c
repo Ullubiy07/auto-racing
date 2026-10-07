@@ -107,8 +107,10 @@ static MoveType GetRandomMove(const Car* car, int budget) {
 }
 
 size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget) {
-    // int budget = rand() % maxBudget + 1;
-    int budget = maxBudget;
+    int budget1 = rand() % maxBudget + 1;
+    int budget2 = rand() % maxBudget + 1;
+    int budget = (budget1 > budget2 ? budget1 : budget2);
+    // int budget = maxBudget;
     Car dummy = *car;
     int movesDone = 0;
     dummy.prevPos = (Point){dummy.cell->x, dummy.cell->y};
