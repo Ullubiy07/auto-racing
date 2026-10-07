@@ -5,27 +5,27 @@
 
 // Перечисление, описывающее тип клеток схемы трассы
 typedef enum {
-	LAYOUT_EMPTY,           // Фон, пустота, исключительно для отрисовки
-	LAYOUT_UNKNOWN,         // Неизвестная клетка
-	
-	// Стены
-	LAYOUT_WALL_HOR,        // Вертикальная
-	LAYOUT_WALL_VERT,       // Горизонтальная
-	LAYOUT_WALL_TOP_LEFT,   // Верхний левый уголок
-	LAYOUT_WALL_TOP_RIGHT,  // Верхний правый уголок
-	LAYOUT_WALL_BOT_LEFT,   // Нижний левый уголок
-	LAYOUT_WALL_BOT_RIGHT,  // Нижний правый уголок
-	
-	// Дороги
-	LAYOUT_ROAD,            // Дорога
-	LAYOUT_START_RIGHT,     // Старт вправо
-	LAYOUT_START_LEFT,      // Старт влево
-	LAYOUT_START_UP,        // Старт вверх
-	LAYOUT_START_DOWN,      // Старт вниз
-	LAYOUT_TURN_RIGHT,      // Поворот вправо
-	LAYOUT_TURN_LEFT,       // Поворот влево
-	LAYOUT_TURN_UP,         // Поворот вверх
-	LAYOUT_TURN_DOWN        // Поворот вниз
+    LAYOUT_EMPTY,   // Фон, пустота, исключительно для отрисовки
+    LAYOUT_UNKNOWN, // Неизвестная клетка
+
+    // Стены
+    LAYOUT_WALL_HOR,       // Вертикальная
+    LAYOUT_WALL_VERT,      // Горизонтальная
+    LAYOUT_WALL_TOP_LEFT,  // Верхний левый уголок
+    LAYOUT_WALL_TOP_RIGHT, // Верхний правый уголок
+    LAYOUT_WALL_BOT_LEFT,  // Нижний левый уголок
+    LAYOUT_WALL_BOT_RIGHT, // Нижний правый уголок
+
+    // Дороги
+    LAYOUT_ROAD,        // Дорога
+    LAYOUT_START_RIGHT, // Старт вправо
+    LAYOUT_START_LEFT,  // Старт влево
+    LAYOUT_START_UP,    // Старт вверх
+    LAYOUT_START_DOWN,  // Старт вниз
+    LAYOUT_TURN_RIGHT,  // Поворот вправо
+    LAYOUT_TURN_LEFT,   // Поворот влево
+    LAYOUT_TURN_UP,     // Поворот вверх
+    LAYOUT_TURN_DOWN    // Поворот вниз
 } CellType;
 
 bool IsCellTurn(CellType type);
@@ -37,13 +37,13 @@ bool IsCellDriveable(CellType type);
 CellType GetCellType(char inputSymbol);
 
 typedef struct {
-	int x;
-	int y;
+    int x;
+    int y;
 } Point;
 
 typedef struct {
-	int dx;
-	int dy;
+    int dx;
+    int dy;
 } Direction;
 
 // Получить направление клетки
@@ -51,39 +51,36 @@ Direction GetCellDirection(CellType type);
 
 // Структура, описывающая информацию о клетке
 typedef struct {
-	CellType type;          // Тип клетки 
-	const char* inSymbols;  // Символы, обрабатываемый на входе
-	const char* outSymbol;  // Символ для отображения
+    CellType type;         // Тип клетки
+    const char* inSymbols; // Символы, обрабатываемый на входе
+    const char* outSymbol; // Символ для отображения
 } CellInfo;
 
 // Получить информацию о клетке
 const CellInfo* GetCellInfo(CellType type);
 
-typedef enum {
-	ENTITY_CAR,
-	ENTITY_NONE
-} EntityType;
+typedef enum { ENTITY_CAR, ENTITY_NONE } EntityType;
 
 typedef struct {
-	EntityType type;
-	void* data;
+    EntityType type;
+    void* data;
 } Entity;
 
 typedef struct {
-	int lane;
-	int distToFinish;
-	struct cell_t* forward;
-	struct cell_t* back;
-	struct cell_t* left;
-	struct cell_t* right;
+    int lane;
+    int distToFinish;
+    struct cell_t* forward;
+    struct cell_t* back;
+    struct cell_t* left;
+    struct cell_t* right;
 } Road;
 
 typedef struct cell_t {
-	int x;
-	int y;
-	CellType type;
-	Entity entity;
-	Road road;
+    int x;
+    int y;
+    CellType type;
+    Entity entity;
+    Road road;
 } Cell;
 
 void ClearCell(Cell* cell);

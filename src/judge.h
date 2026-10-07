@@ -6,26 +6,26 @@
 #include "car.h"
 
 enum {
-	MAX_CARS = 26,
-	MAX_TEAMS = 7
+    MAX_CARS = 26,
+    MAX_TEAMS = 7,
 };
 
 // Правила, которыми руководствуется судья
 typedef struct {
-	int maxRounds;  // Предельное число раундов
-	int maxLaps;  // Всего кругов
+    int maxRounds; // Предельное число раундов
+    int maxLaps;   // Всего кругов
 } JudgeRules;
 
 // Судья, отслеживающий ход гонки и таблицу лидеров
 typedef struct {
-	const JudgeRules* rules;
-	int roundsPlayed;  			 // Количество сыгранных раундов
-	int turn;          			 // Индекс текущего хода
-	
-	Car* leaderBoard[MAX_CARS];  // Таблица лидеров
-	int carCount;                // Общее число машин
-	int activeCarCount;          // Количество активных машин (не сошедших)
-	int carsInCurrentRound;      // Количество активных машин на начало текущего раунда
+    const JudgeRules* rules;
+    int roundsPlayed; // Количество сыгранных раундов
+    int turn;         // Индекс текущего хода
+
+    Car* leaderBoard[MAX_CARS]; // Таблица лидеров
+    int carCount;               // Общее число машин
+    int activeCarCount;         // Количество активных машин (не сошедших)
+    int carsInCurrentRound;     // Количество активных машин на начало текущего раунда
 } Judge;
 
 // Инициализировать судью
