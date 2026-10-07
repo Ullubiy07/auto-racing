@@ -83,18 +83,18 @@ static void DrawRace(const Race* race) {
 }
 
 static void PlayRound(Race* race) {
-    Judge* judje = &race->judge;
+    Judge* judge = &race->judge;
 
-    StartRound(judje);
+    StartRound(judge);
     DrawRace(race);
 
     MoveType moves[3 * MAX_CARS];
     int prevMoveCost = 0;
 
-    while (!IsRoundOver(judje)) {
-        Car* car = GetCurrentCar(judje);
+    while (!IsRoundOver(judge)) {
+        Car* car = GetCurrentCar(judge);
 
-        int maxBudget = (judje->turn == 0 ? 4 : judje->turn == 1 ? prevMoveCost + 2 : prevMoveCost + 1);
+        int maxBudget = GetCurrentCarBudget(judge, prevMoveCost);
         int actualCost = 0;
 
         size_t movesDone = BuildRoute(car, moves, 3 * MAX_CARS, maxBudget);
@@ -106,13 +106,13 @@ static void PlayRound(Race* race) {
 
         prevMoveCost = actualCost;
         if (movesDone == 0) {
-            RegisterZeroMove(judje);
+            RegisterZeroMove(judge);
         }
 
-        NextTurn(judje);
+        NextTurn(judge);
     }
 
-    EndRound(judje);
+    EndRound(judge);
     DrawRace(race);
 }
 

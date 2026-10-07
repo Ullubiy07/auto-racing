@@ -32,84 +32,96 @@ static int CompareCars(const void* a, const void* b) {
     return roadA->lane - roadB->lane;
 }
 
-static void UpdateLeaderBoard(Judge* judje) { qsort(judje->leaderBoard, judje->carCount, sizeof(Car*), CompareCars); }
+static void UpdateLeaderBoard(Judge* judge) { qsort(judge->leaderBoard, judge->carCount, sizeof(Car*), CompareCars); }
 
-void InitJudge(Judge* judje, Car* cars, int carCount, const JudgeRules* rules) {
-    judje->rules = rules;
-    judje->carCount = carCount;
-    judje->activeCarCount = carCount;
-    judje->carsInCurrentRound = carCount;
+void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules) {
+    judge->rules = rules;
+    judge->carCount = carCount;
+    judge->activeCarCount = carCount;
+    judge->carsInCurrentRound = carCount;
 
     for (int i = 0; i < carCount; ++i) {
-        judje->leaderBoard[i] = &cars[i];
+        judge->leaderBoard[i] = &cars[i];
     }
-    UpdateLeaderBoard(judje);
+    UpdateLeaderBoard(judge);
 
-    judje->turn = 0;
-    judje->roundsPlayed = 0;
+    judge->turn = 0;
+    judge->prevMoveCost = 0;
+    judge->roundsPlayed = 0;
 }
 
-Car* GetCurrentCar(const Judge* judje) {
-    assert(judje->turn >= 0 && judje->turn < judje->carsInCurrentRound);
-    assert(!judje->leaderBoard[judje->turn]->isOut);
-
-    return judje->leaderBoard[judje->turn];
+int GetCurrentCarBudget(const Judge* judge, int prevMoveCost) {
+    if (judge->turn == 0) {
+        return 4;
+    }
+    if (judge->turn == 1) {
+        return prevMoveCost + 2;
+    }
+    return prevMoveCost + 1;
 }
 
-void NextTurn(Judge* judje) { ++judje->turn; }
+Car* GetCurrentCar(const Judge* judge) {
+    assert(judge->turn >= 0 && judge->turn < judge->carsInCurrentRound);
+    assert(!judge->leaderBoard[judge->turn]->isOut);
 
-void RegisterZeroMove(Judge* judje) {
-    Car* car = GetCurrentCar(judje);
+    return judge->leaderBoard[judge->turn];
+}
+
+void NextTurn(Judge* judge) { ++judge->turn; }
+
+void RegisterZeroMove(Judge* judge) {
+    Car* car = GetCurrentCar(judge);
 
     assert(car);
     assert(!car->isOut);
     assert(!car->isBlocked);
-    assert(judje->activeCarCount);
+    assert(judge->activeCarCount);
 
     car->isBlocked = true;
-    --judje->activeCarCount;
+    --judge->activeCarCount;
 }
 
-void StartRound(Judge* judje) {
-    judje->turn = 0;
-    judje->carsInCurrentRound = judje->activeCarCount;
+void StartRound(Judge* judge) {
+    judge->turn = 0;
+    judge->prevMoveCost = 0;
+    judge->carsInCurrentRound = judge->activeCarCount;
 }
 
-void EndRound(Judge* judje) {
-    ++judje->roundsPlayed;
-    for (int i = 0; i < judje->carsInCurrentRound; ++i) {
-        Car* car = judje->leaderBoard[i];
+void EndRound(Judge* judge) {
+    ++judge->roundsPlayed;
+    for (int i = 0; i < judge->carsInCurrentRound; ++i) {
+        Car* car = judge->leaderBoard[i];
         if (car->isBlocked) {
             car->isOut = true;
             ClearCell((Cell*) car->cell);
         }
     }
-    UpdateLeaderBoard(judje);
+    UpdateLeaderBoard(judge);
 }
 
-bool IsRoundOver(const Judge* judje) { return judje->turn >= judje->carsInCurrentRound; }
+bool IsRoundOver(const Judge* judge) { return judge->turn >= judge->carsInCurrentRound; }
 
-bool IsRaceOver(const Judge* judje) {
+bool IsRaceOver(const Judge* judge) {
     bool hasWinner = false;
-    for (int i = 0; i < judje->carCount; ++i) {
-        hasWinner |= (judje->leaderBoard[i]->laps >= judje->rules->maxLaps);
+    for (int i = 0; i < judge->carCount; ++i) {
+        hasWinner |= (judge->leaderBoard[i]->laps >= judge->rules->maxLaps);
     }
 
-    return judje->activeCarCount == 0 || judje->roundsPlayed >= judje->rules->maxRounds || hasWinner;
+    return judge->activeCarCount == 0 || judge->roundsPlayed >= judge->rules->maxRounds || hasWinner;
 }
 
-void AnnounceWinner(const Judge* judje) {
-    Car* winner = judje->leaderBoard[0];
+void AnnounceWinner(const Judge* judge) {
+    Car* winner = judge->leaderBoard[0];
     dprintf(1, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
 }
 
-void DrawLeaderBoard(const Judge* judje) {
+void DrawLeaderBoard(const Judge* judge) {
     dprintf(1, "================================LEADER BOARD=================================\n");
     dprintf(1, " %-5s | %-3s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Car", "Team", "Driver", "Laps",
             "Lane", "Dist", "State");
 
-    for (int i = 0; i < judje->carCount; ++i) {
-        Car* car = judje->leaderBoard[i];
+    for (int i = 0; i < judge->carCount; ++i) {
+        Car* car = judge->leaderBoard[i];
 
         dprintf(1, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s", i + 1,
                 car->team.color, "🏎", car->team.name, car->driverName, car->laps, car->cell->road.lane,
@@ -118,10 +130,10 @@ void DrawLeaderBoard(const Judge* judje) {
                 : car->isBlocked && car->isOut ? "OUT"
                                                : "IN RACE");
 
-        if (i == judje->turn && !IsRoundOver(judje)) {
+        if (i == judge->turn && !IsRoundOver(judge)) {
             dprintf(1, " <-");
         }
         dprintf(1, "\n");
     }
-    dprintf(1, "\nRounds played: %d\n", judje->roundsPlayed);
+    dprintf(1, "\nRounds played: %d\n", judge->roundsPlayed);
 }
