@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -150,8 +151,8 @@ static void PrintHelpUsage(const char* progName) {
     printf("  -t, --team  \"NAME:COLOR:DRIVER1,DRIVER2,...\"   Add a team with drivers\n");
     printf(
         "  -s, --start \"DRIVER1,DRIVER2,...\"              Specify start order by driver names (default: random)\n");
-    printf("  -r, --rounds N                                 Set max rounds (default: 80)\n");
-    printf("  -l, --laps N                                   Set max laps (default: 5)\n");
+    printf("  -r, --rounds N                                 Set max rounds (default: unlimited)\n");
+    printf("  -l, --laps N                                   Set max laps (default: 1)\n");
     printf("  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
     printf("  -m, --map FILE                                 Specify track map\n");
     printf("  -h, --help                                     Print help message\n");
@@ -205,8 +206,8 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
         {"help", no_argument, NULL, 'h'},         {NULL, 0, NULL, 0}};
     int opt;
 
-    settings->rules.maxLaps = 5;
-    settings->rules.maxRounds = 80;
+    settings->rules.maxLaps = 1;
+    settings->rules.maxRounds = INT_MAX;
     settings->delayMs = 50;
 
     while ((opt = getopt_long(argc, argv, "t:s:r:l:d:m:h", longOptions, NULL)) != -1) {
@@ -272,7 +273,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     }
 
     if (!hasMap) {
-        ParseMapFile(settings, "../data/track1");
+        ParseMapFile(settings, "../data/track3");
     }
 
     if (settings->startOrderSize != settings->carCount) {
