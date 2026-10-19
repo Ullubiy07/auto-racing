@@ -273,7 +273,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     }
 
     if (!hasMap) {
-        ParseMapFile(settings, "../data/track3");
+        ParseMapFile(settings, "../data/twisty");
     }
 
     if (settings->startOrderSize != settings->carCount) {
