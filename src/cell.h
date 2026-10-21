@@ -2,6 +2,7 @@
 #define CELL_H
 
 #include <stdbool.h>
+#include <pthread.h>
 
 // Перечисление, описывающее тип клеток схемы трассы
 typedef enum {
@@ -81,12 +82,14 @@ typedef struct cell_t {
     CellType type;
     Entity entity;
     Road road;
+    
+    pthread_mutex_t mutex;
 } Cell;
 
-void ClearCell(Cell* cell);
+void InitCell(Cell* cell, int x, int y, CellType type);
 
-void SetCellEntity(Cell* cell, EntityType type, void* data);
+bool TryTakeCell(Cell* cell, Entity e);
 
-bool IsCellFree(const Cell* cell);
+void LeaveCell(Cell* cell);
 
 #endif

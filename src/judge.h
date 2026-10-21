@@ -19,9 +19,6 @@ typedef struct {
 // Судья, отслеживающий ход гонки и таблицу лидеров
 typedef struct {
     const JudgeRules* rules;
-    int roundsPlayed; // Количество сыгранных раундов
-    int turn;         // Индекс текущего хода
-    int prevMoveCost;
 
     Car* leaderBoard[MAX_CARS]; // Таблица лидеров
     int carCount;               // Общее число машин
@@ -35,29 +32,8 @@ void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules);
 // Проверить, закончилась ли гонка
 bool IsRaceOver(const Judge* judge);
 
-// Проверить, закончился ли раунд
-bool IsRoundOver(const Judge* judge);
-
-// Начать новый раунд
-void StartRound(Judge* judge);
-
-// Закончить текущий раунд
-void EndRound(Judge* judge);
-
-// Получить машину текущего хода
-Car* GetCurrentCar(const Judge* judge);
-
-// Получить бюджет машины текущего хода
-int GetCurrentCarBudget(const Judge* judge, int prevMoveCost);
-
-// Перейти к следующему ходу
-void NextTurn(Judge* judge);
-
-// Зарегистрировать нулевой ход (сход машины с дистанции)
-void RegisterZeroMove(Judge* judge);
-
 // Вывести таблицу лидеров на экран
-void DrawLeaderBoard(const Judge* judge);
+void DrawLeaderBoard(Judge* judge);
 
 // Объявить победителя гонки
 void AnnounceWinner(const Judge* judge);

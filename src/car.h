@@ -29,17 +29,16 @@ typedef struct Car {
     Point prevPos; // Предыдущее местоположение
 
     bool hasPassedStart; // Прошла ли машина линию старта
-    bool isBlocked;
+    bool isActive;
+    bool isStarted;
     bool isOut; // Сошла ли машина с дистанции
+    
+    pthread_t thread;
 } Car;
 
 // Инициализация машины на стартовой решетке
 void InitCar(Car* car, char* driverName, Team team, const Cell* cell);
 
-size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget);
-
-int GetMoveCost(const Cell* cell, MoveType type);
-
-bool MakeMove(Car* car, MoveType type);
+void* RunCar(void* arg);
 
 #endif

@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <string.h>
 
 #include "cell.h"
@@ -68,14 +69,30 @@ bool IsCellStart(CellType type) { return LAYOUT_START_RIGHT <= type && type <= L
 
 bool IsCellDriveable(CellType type) { return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type); }
 
-bool IsCellFree(const Cell* cell) { return cell->entity.type == ENTITY_NONE; }
-
-void ClearCell(Cell* cell) {
+void InitCell(Cell* cell, int x, int y, CellType type) {
+    cell->x = x;
+    cell->y = y;
+    cell->type = type;
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
+    
+    pthread_mutex_init(&cell->mutex, NULL);
 }
 
-void SetCellEntity(Cell* cell, EntityType type, void* data) {
-    cell->entity.data = data;
-    cell->entity.type = type;
+bool TryTakeCell(Cell* cell, Entity e) {
+    bool res = false;
+    pthread_mutex_lock(&cell->mutex);
+    if (cell->entity.type == ENTITY_NONE) {
+        cell->entity = e;
+        res = true;
+    }
+    pthread_mutex_unlock(&cell->mutex);
+    return res;
+}
+
+void LeaveCell(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
+    cell->entity.data = NULL;
+    cell->entity.type = ENTITY_NONE;
+    pthread_mutex_unlock(&cell->mutex);
 }

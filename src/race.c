@@ -5,6 +5,9 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "car.h"
+#include "cell.h"
+#include "judge.h"
 
 static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
     for (int i = 0; i < settings->teamCount; ++i) {
@@ -34,15 +37,15 @@ static void InitCars(Race* race) {
         }
 
         Team team = (Team){.color = teamCfg->color, .name = (char*) teamCfg->name};
-
+        Entity car = {.data = &race->cars[i], .type = ENTITY_CAR};
+        
         start = start->road.back;
-        if (!start || !IsCellFree(start)) {
+        if (!start || !TryTakeCell(start, car)) {
             dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
             exit(2);
         }
 
         InitCar(&race->cars[i], (char*) driver, team, start);
-        SetCellEntity(start, ENTITY_CAR, &race->cars[i]);
     }
 }
 
@@ -60,7 +63,7 @@ void ClearScreen() {
     dprintf(1, "\x1b[0;0f"); // Переместить курсор в левый верхний угол
 }
 
-static void DrawRace(const Race* race) {
+static void DrawRace(Race* race) {
     ClearScreen();
     for (int i = 0; i < race->track->height; ++i) {
         for (int j = 0; j < race->track->width; ++j) {
@@ -79,46 +82,23 @@ static void DrawRace(const Race* race) {
         dprintf(1, "\n");
     }
     DrawLeaderBoard(&race->judge);
-    usleep(race->settings->delayMs * 1000);
-}
-
-static void PlayRound(Race* race) {
-    Judge* judge = &race->judge;
-
-    StartRound(judge);
-    DrawRace(race);
-
-    MoveType moves[3 * MAX_CARS];
-    int prevMoveCost = 0;
-
-    while (!IsRoundOver(judge)) {
-        Car* car = GetCurrentCar(judge);
-
-        int maxBudget = GetCurrentCarBudget(judge, prevMoveCost);
-        int actualCost = 0;
-
-        size_t movesDone = BuildRoute(car, moves, 3 * MAX_CARS, maxBudget);
-        for (int i = 0; i < movesDone; ++i) {
-            actualCost += GetMoveCost(car->cell, moves[i]);
-            MakeMove(car, moves[i]);
-            DrawRace(race);
-        }
-
-        prevMoveCost = actualCost;
-        if (movesDone == 0) {
-            RegisterZeroMove(judge);
-        }
-
-        NextTurn(judge);
-    }
-
-    EndRound(judge);
-    DrawRace(race);
 }
 
 void StartRace(Race* race) {
-    while (!IsRaceOver(&race->judge)) {
-        PlayRound(race);
+    DrawRace(race);
+    usleep(1000 * 1000);
+    
+    for (int i = 0; i < race->carCount; ++i) {
+        if (pthread_create(&race->cars[i].thread, NULL, RunCar, &race->cars[i])) {
+            perror("create car thread failed");
+            exit(2);
+        }
     }
+    
+    while (!IsRaceOver(&race->judge)) {
+        DrawRace(race);
+        usleep(race->settings->delayMs * 1000);
+    }
+    DrawRace(race);
     AnnounceWinner(&race->judge);
 }

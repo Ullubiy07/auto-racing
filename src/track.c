@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "track.h"
+#include "cell.h"
 
 typedef struct {
     Point pos;
@@ -236,12 +237,8 @@ void LoadTrack(Track* track, const char* fileName) {
                 dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
                 exit(2);
             }
-
-            Cell* cell = &track->map[track->height][x];
-            cell->type = type;
-            cell->x = x;
-            cell->y = track->height;
-            SetCellEntity(cell, ENTITY_NONE, NULL);
+            
+            InitCell(&track->map[track->height][x], x, track->height, type);
             ++x;
         }
     }
