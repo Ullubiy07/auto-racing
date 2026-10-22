@@ -117,7 +117,9 @@ static bool TryBestMove(Car* car) {
     return false;
 }
 
-void StopCar(Car* car) { car->isStopped = true; }
+void StopCar(Car* car) {
+    car->isStopped = true;
+}
 
 void* RunCar(void* arg) {
     Car* car = arg;

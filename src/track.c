@@ -18,11 +18,17 @@ typedef struct {
     int tail;
 } Queue;
 
-static void QueuePush(Queue* queue, Node node) { queue->data[queue->tail++] = node; }
+static void QueuePush(Queue* queue, Node node) {
+    queue->data[queue->tail++] = node;
+}
 
-static Node QueuePop(Queue* queue) { return queue->data[queue->head++]; }
+static Node QueuePop(Queue* queue) {
+    return queue->data[queue->head++];
+}
 
-static bool IsQueueEmpty(const Queue* queue) { return queue->head >= queue->tail; }
+static bool IsQueueEmpty(const Queue* queue) {
+    return queue->head >= queue->tail;
+}
 
 static bool IsInsideTrack(const Track* track, Point pos) {
     return pos.x >= 0 && pos.x < track->width && pos.y >= 0 && pos.y < track->height;

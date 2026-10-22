@@ -84,7 +84,9 @@ static void DrawRace(Race* race) {
     DrawLeaderBoard(&race->judge);
 }
 
-void StopRace(Race* race) { race->isStopped = true; }
+void StopRace(Race* race) {
+    race->isStopped = true;
+}
 
 void RunRace(Race* race) {
     DrawRace(race);

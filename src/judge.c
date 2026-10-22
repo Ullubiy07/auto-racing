@@ -31,7 +31,9 @@ static int CompareCars(const void* a, const void* b) {
     return roadA->lane - roadB->lane;
 }
 
-static void UpdateLeaderBoard(Judge* judge) { qsort(judge->leaderBoard, judge->carCount, sizeof(Car*), CompareCars); }
+static void UpdateLeaderBoard(Judge* judge) {
+    qsort(judge->leaderBoard, judge->carCount, sizeof(Car*), CompareCars);
+}
 
 void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules) {
     judge->rules = rules;

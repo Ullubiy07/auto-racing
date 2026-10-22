@@ -9,7 +9,9 @@
 
 Race race;
 
-void RaceStopHandler(int sig) { StopRace(&race); }
+void RaceStopHandler(int sig) {
+    StopRace(&race);
+}
 
 int main(int argc, char* argv[]) {
     srand(time(NULL));

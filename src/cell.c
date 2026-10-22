@@ -63,11 +63,17 @@ Direction GetCellDirection(CellType type) {
     return (Direction){0, 0};
 }
 
-bool IsCellTurn(CellType type) { return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN; }
+bool IsCellTurn(CellType type) {
+    return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN;
+}
 
-bool IsCellStart(CellType type) { return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN; }
+bool IsCellStart(CellType type) {
+    return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN;
+}
 
-bool IsCellDriveable(CellType type) { return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type); }
+bool IsCellDriveable(CellType type) {
+    return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
+}
 
 void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->x = x;
