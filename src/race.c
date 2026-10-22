@@ -35,7 +35,7 @@ static void InitCars(Race* race) {
 
         Team team = (Team){.color = teamCfg->color, .name = (char*) teamCfg->name};
         Entity car = {.data = &race->cars[i], .type = ENTITY_CAR};
-        
+
         start = start->road.back;
         if (!start || !TryTakeCell(start, car)) {
             dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
@@ -84,21 +84,21 @@ static void DrawRace(Race* race) {
 void StartRace(Race* race) {
     DrawRace(race);
     usleep(1000 * 1000);
-    
+
     for (int i = 0; i < race->carCount; ++i) {
         if (pthread_create(&race->cars[i].ctx.thread, NULL, RunCar, &race->cars[i])) {
             perror("create car thread failed");
             exit(2);
         }
     }
-    
+
     while (!IsRaceOver(&race->judge)) {
         DrawRace(race);
         usleep(race->settings->delayMs * 1000);
     }
     DrawRace(race);
     AnnounceWinner(&race->judge);
-    
+
     for (int i = 0; i < race->carCount; ++i) {
         StopCar(&race->cars[i]);
         if (pthread_join(race->cars[i].ctx.thread, NULL)) {

@@ -17,7 +17,7 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->hasPassedStart = false;
     car->ctx.isStopped = false;
     car->isOut = false;
-    
+
     pthread_mutex_init(&car->ctx.mutex, NULL);
 }
 
@@ -138,19 +138,19 @@ void* RunCar(void* arg) {
 
     int baseSleepTime = 1000 * 80;
     unsigned int seed = 0;
-    
+
     for (int i = 0; car->driverName[i] != '\0'; ++i) {
         seed = seed * 37 + car->driverName[i];
     }
-    
-    bool (*TryMoveFunc) (Car*);
+
+    bool (*TryMoveFunc)(Car*);
 
     while (!IsCarStopped(car)) {
         TryMoveFunc = TryBestMove;
         if (rand() % 2) {
             TryMoveFunc = TryRandomMove;
         }
-        
+
         int sleepTime = baseSleepTime + (rand_r(&seed) % 100) * 1000;
         if (!TryMoveFunc(car)) {
             sleepTime += (rand_r(&seed) % 50) * 1000;

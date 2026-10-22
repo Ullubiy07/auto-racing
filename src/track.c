@@ -237,7 +237,7 @@ void LoadTrack(Track* track, const char* fileName) {
                 dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
                 exit(2);
             }
-            
+
             InitCell(&track->map[track->height][x], x, track->height, type);
             ++x;
         }

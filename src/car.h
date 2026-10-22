@@ -36,8 +36,8 @@ typedef struct Car {
     Point prevPos; // Предыдущее местоположение
 
     bool hasPassedStart; // Прошла ли машина линию старта
-    bool isOut; // Сошла ли машина с дистанции
-    
+    bool isOut;          // Сошла ли машина с дистанции
+
     CarContext ctx;
 } Car;
 

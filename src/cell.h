@@ -82,7 +82,7 @@ typedef struct cell_t {
     CellType type;
     Entity entity;
     Road road;
-    
+
     pthread_mutex_t mutex;
 } Cell;
 

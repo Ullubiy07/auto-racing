@@ -31,9 +31,7 @@ static int CompareCars(const void* a, const void* b) {
     return roadA->lane - roadB->lane;
 }
 
-static void UpdateLeaderBoard(Judge* judge) {
-    qsort(judge->leaderBoard, judge->carCount, sizeof(Car*), CompareCars);
-}
+static void UpdateLeaderBoard(Judge* judge) { qsort(judge->leaderBoard, judge->carCount, sizeof(Car*), CompareCars); }
 
 void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules) {
     judge->rules = rules;
@@ -63,7 +61,7 @@ void AnnounceWinner(const Judge* judge) {
 
 void DrawLeaderBoard(Judge* judge) {
     UpdateLeaderBoard(judge);
-    
+
     dprintf(1, "================================LEADER BOARD=================================\n");
     dprintf(1, " %-5s | %-3s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Car", "Team", "Driver", "Laps",
             "Lane", "Dist", "State");

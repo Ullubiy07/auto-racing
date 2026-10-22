@@ -4,23 +4,23 @@
 #include "cell.h"
 
 static const CellInfo cells[] = {
-	{ LAYOUT_WALL_HOR,       "-",  "──" },
-	{ LAYOUT_WALL_VERT,      "|",  "│ " },
-	{ LAYOUT_WALL_TOP_LEFT,  "1",  "┌─" },
-	{ LAYOUT_WALL_TOP_RIGHT, "2",  "┐ " },
-	{ LAYOUT_WALL_BOT_LEFT,  "3",  "└─" },
-	{ LAYOUT_WALL_BOT_RIGHT, "4",  "┘ " },
-	{ LAYOUT_ROAD,           ".",  ". " },
-	{ LAYOUT_EMPTY,          " ",  "  " },
-	{ LAYOUT_TURN_RIGHT,     ">",  ". " },
-	{ LAYOUT_TURN_LEFT,      "<",  ". " },
-	{ LAYOUT_TURN_UP,        "^",  ". " },
-	{ LAYOUT_TURN_DOWN,      "v",  ". " },
-	{ LAYOUT_START_LEFT,     "Ll", "▓ " },
-	{ LAYOUT_START_RIGHT,    "Rr", "▓ " },
-	{ LAYOUT_START_DOWN,     "Dd", "▓ " },
-	{ LAYOUT_START_UP,       "Uu", "▓ " },
-	{ LAYOUT_UNKNOWN,        "?",  "? " }
+    { LAYOUT_WALL_HOR,       "-",  "──" },
+    { LAYOUT_WALL_VERT,      "|",  "│ " },
+    { LAYOUT_WALL_TOP_LEFT,  "1",  "┌─" },
+    { LAYOUT_WALL_TOP_RIGHT, "2",  "┐ " },
+    { LAYOUT_WALL_BOT_LEFT,  "3",  "└─" },
+    { LAYOUT_WALL_BOT_RIGHT, "4",  "┘ " },
+    { LAYOUT_ROAD,           ".",  ". " },
+    { LAYOUT_EMPTY,          " ",  "  " },
+    { LAYOUT_TURN_RIGHT,     ">",  ". " },
+    { LAYOUT_TURN_LEFT,      "<",  ". " },
+    { LAYOUT_TURN_UP,        "^",  ". " },
+    { LAYOUT_TURN_DOWN,      "v",  ". " },
+    { LAYOUT_START_LEFT,     "Ll", "▓ " },
+    { LAYOUT_START_RIGHT,    "Rr", "▓ " },
+    { LAYOUT_START_DOWN,     "Dd", "▓ " },
+    { LAYOUT_START_UP,       "Uu", "▓ " },
+    { LAYOUT_UNKNOWN,        "?",  "? " }
 };
 
 static const size_t CELL_MAP_SIZE = sizeof(cells) / sizeof(cells[0]);
@@ -75,7 +75,7 @@ void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->type = type;
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
-    
+
     pthread_mutex_init(&cell->mutex, NULL);
 }
 
