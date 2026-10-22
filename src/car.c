@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "car.h"
@@ -17,6 +18,12 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->hasPassedStart = false;
     car->isStopped = false;
     car->isOut = false;
+
+    pthread_mutex_init(&car->mutex, NULL);
+
+    pthread_condattr_t attr;
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    pthread_cond_init(&car->sleep, &attr);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {
@@ -119,6 +126,7 @@ static bool TryBestMove(Car* car) {
 
 void StopCar(Car* car) {
     car->isStopped = true;
+    pthread_cond_signal(&car->sleep);
 }
 
 void* RunCar(void* arg) {
@@ -143,7 +151,16 @@ void* RunCar(void* arg) {
         if (!TryMoveFunc(car)) {
             sleepTime += (rand_r(&seed) % 50) * 1000;
         }
-        usleep(sleepTime);
+
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        ts.tv_nsec += sleepTime * 1000;
+        if (ts.tv_nsec >= 1000000000) {
+            ++ts.tv_sec;
+            ts.tv_nsec -= 1000000000;
+        }
+
+        pthread_cond_timedwait(&car->sleep, &car->mutex, &ts);
     }
     return NULL;
 }

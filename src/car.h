@@ -35,6 +35,8 @@ typedef struct Car {
 
     atomic_bool isStopped;
     pthread_t thread;
+    pthread_mutex_t mutex;
+    pthread_cond_t sleep;
 } Car;
 
 // Инициализация машины на стартовой решетке
