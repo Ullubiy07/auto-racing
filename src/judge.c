@@ -3,7 +3,6 @@
 #include <assert.h>
 
 #include "judge.h"
-#include "cell.h"
 
 static int CompareCars(const void* a, const void* b) {
     const Car* carA = *(const Car**) a;

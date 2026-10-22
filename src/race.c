@@ -5,9 +5,6 @@
 #include <unistd.h>
 
 #include "race.h"
-#include "car.h"
-#include "cell.h"
-#include "judge.h"
 
 static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
     for (int i = 0; i < settings->teamCount; ++i) {
@@ -89,7 +86,7 @@ void StartRace(Race* race) {
     usleep(1000 * 1000);
     
     for (int i = 0; i < race->carCount; ++i) {
-        if (pthread_create(&race->cars[i].thread, NULL, RunCar, &race->cars[i])) {
+        if (pthread_create(&race->cars[i].ctx.thread, NULL, RunCar, &race->cars[i])) {
             perror("create car thread failed");
             exit(2);
         }
@@ -101,4 +98,11 @@ void StartRace(Race* race) {
     }
     DrawRace(race);
     AnnounceWinner(&race->judge);
+    
+    for (int i = 0; i < race->carCount; ++i) {
+        StopCar(&race->cars[i]);
+        if (pthread_join(race->cars[i].ctx.thread, NULL)) {
+            perror("join pthread failed");
+        }
+    }
 }

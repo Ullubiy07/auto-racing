@@ -1,8 +1,9 @@
+#include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "car.h"
-#include "cell.h"
 
 void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->driverName = driverName;
@@ -14,8 +15,10 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->laps = 0;
 
     car->hasPassedStart = false;
-    car->isActive = false;
+    car->ctx.isStopped = false;
     car->isOut = false;
+    
+    pthread_mutex_init(&car->ctx.mutex, NULL);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {
@@ -116,25 +119,43 @@ static bool TryBestMove(Car* car) {
     return false;
 }
 
+static bool IsCarStopped(Car* car) {
+    bool signal;
+    pthread_mutex_lock(&car->ctx.mutex);
+    signal = car->ctx.isStopped;
+    pthread_mutex_unlock(&car->ctx.mutex);
+    return signal;
+}
+
+void StopCar(Car* car) {
+    pthread_mutex_lock(&car->ctx.mutex);
+    car->ctx.isStopped = true;
+    pthread_mutex_unlock(&car->ctx.mutex);
+}
+
 void* RunCar(void* arg) {
     Car* car = arg;
-    car->isActive = true;
 
-    int sleepTime = 1000 * 80;
+    int baseSleepTime = 1000 * 80;
+    unsigned int seed = 0;
+    
+    for (int i = 0; car->driverName[i] != '\0'; ++i) {
+        seed = seed * 37 + car->driverName[i];
+    }
     
     bool (*TryMoveFunc) (Car*);
 
-    while (car->isActive) {
+    while (!IsCarStopped(car)) {
         TryMoveFunc = TryBestMove;
         if (rand() % 2) {
             TryMoveFunc = TryRandomMove;
         }
         
+        int sleepTime = baseSleepTime + (rand_r(&seed) % 100) * 1000;
         if (!TryMoveFunc(car)) {
-            usleep(sleepTime);
-        } else {
-            usleep(sleepTime + 1000 * 100);
+            sleepTime += (rand_r(&seed) % 50) * 1000;
         }
+        usleep(sleepTime);
     }
     return NULL;
 }
