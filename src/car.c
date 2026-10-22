@@ -15,10 +15,8 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->laps = 0;
 
     car->hasPassedStart = false;
-    car->ctx.isStopped = false;
+    car->isStopped = false;
     car->isOut = false;
-
-    pthread_mutex_init(&car->ctx.mutex, NULL);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {
@@ -119,19 +117,7 @@ static bool TryBestMove(Car* car) {
     return false;
 }
 
-static bool IsCarStopped(Car* car) {
-    bool signal;
-    pthread_mutex_lock(&car->ctx.mutex);
-    signal = car->ctx.isStopped;
-    pthread_mutex_unlock(&car->ctx.mutex);
-    return signal;
-}
-
-void StopCar(Car* car) {
-    pthread_mutex_lock(&car->ctx.mutex);
-    car->ctx.isStopped = true;
-    pthread_mutex_unlock(&car->ctx.mutex);
-}
+void StopCar(Car* car) { car->isStopped = true; }
 
 void* RunCar(void* arg) {
     Car* car = arg;
@@ -145,7 +131,7 @@ void* RunCar(void* arg) {
 
     bool (*TryMoveFunc)(Car*);
 
-    while (!IsCarStopped(car)) {
+    while (!car->isStopped) {
         TryMoveFunc = TryBestMove;
         if (rand() % 2) {
             TryMoveFunc = TryRandomMove;

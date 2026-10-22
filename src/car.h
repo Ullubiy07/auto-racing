@@ -5,6 +5,7 @@
 
 #include <pthread.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
@@ -20,12 +21,6 @@ typedef enum {
     MOVE_NONE,
 } MoveType;
 
-typedef struct {
-    bool isStopped;
-    pthread_t thread;
-    pthread_mutex_t mutex;
-} CarContext;
-
 // Машина, участвующая в гонке
 typedef struct Car {
     char* driverName;
@@ -38,7 +33,8 @@ typedef struct Car {
     bool hasPassedStart; // Прошла ли машина линию старта
     bool isOut;          // Сошла ли машина с дистанции
 
-    CarContext ctx;
+    atomic_bool isStopped;
+    pthread_t thread;
 } Car;
 
 // Инициализация машины на стартовой решетке

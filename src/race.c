@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +52,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
     race->track = track;
     race->settings = settings;
     race->carCount = settings->carCount;
+    race->isStopped = false;
 
     InitCars(race);
     InitJudge(&race->judge, race->cars, race->carCount, &race->settings->rules);
@@ -81,28 +84,31 @@ static void DrawRace(Race* race) {
     DrawLeaderBoard(&race->judge);
 }
 
-void StartRace(Race* race) {
+void StopRace(Race* race) { race->isStopped = true; }
+
+void RunRace(Race* race) {
     DrawRace(race);
     usleep(1000 * 1000);
 
     for (int i = 0; i < race->carCount; ++i) {
-        if (pthread_create(&race->cars[i].ctx.thread, NULL, RunCar, &race->cars[i])) {
+        if (pthread_create(&race->cars[i].thread, NULL, RunCar, &race->cars[i])) {
             perror("create car thread failed");
             exit(2);
         }
     }
 
-    while (!IsRaceOver(&race->judge)) {
+    while (!IsRaceOver(&race->judge) && !race->isStopped) {
         DrawRace(race);
         usleep(race->settings->delayMs * 1000);
     }
-    DrawRace(race);
-    AnnounceWinner(&race->judge);
 
     for (int i = 0; i < race->carCount; ++i) {
         StopCar(&race->cars[i]);
-        if (pthread_join(race->cars[i].ctx.thread, NULL)) {
+        if (pthread_join(race->cars[i].thread, NULL)) {
             perror("join pthread failed");
         }
     }
+
+    DrawRace(race);
+    AnnounceWinner(&race->judge);
 }
