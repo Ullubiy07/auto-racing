@@ -52,7 +52,6 @@ bool IsRaceOver(const Judge* judge) {
     for (int i = 0; i < judge->carCount; ++i) {
         hasWinner |= (judge->leaderBoard[i]->laps >= judge->rules->maxLaps);
     }
-
     return judge->activeCarCount == 0 || hasWinner;
 }
 
