@@ -108,7 +108,7 @@ static bool ParseTeam(RaceSettings* settings, const char* arg) {
 
 static bool ParseStartOrder(RaceSettings* settings, const char* arg) {
     char buf[MAX_CARS * (MAX_DRIVER_NAME_SIZE + 1)];
-    int argSize = strlen(arg);
+    size_t argSize = strlen(arg);
 
     if (argSize >= sizeof(buf)) {
         dprintf(2, "Start argument string is too long\n");
@@ -138,7 +138,11 @@ static bool ParseStartOrder(RaceSettings* settings, const char* arg) {
 }
 
 static bool ParseMapFile(RaceSettings* settings, const char* arg) {
-    if (snprintf(settings->mapFile, sizeof(settings->mapFile), "%s", arg) >= sizeof(settings->mapFile)) {
+    int size = snprintf(settings->mapFile, sizeof(settings->mapFile), "%s", arg);
+    if (size < 0) {
+        return false;
+    }
+    if ((size_t) size >= sizeof(settings->mapFile)) {
         dprintf(2, "Map file path is too long: %zu chars\n", sizeof(settings->mapFile) - 1);
         return false;
     }
@@ -188,8 +192,12 @@ static bool MakeRandomStartOrder(RaceSettings* settings) {
     int offset = 0;
 
     for (int i = 0; i < settings->carCount; ++i) {
-        offset +=
+        int size =
             snprintf(arg + offset, sizeof(arg) - offset, "%s%s", cars[i], (i < settings->carCount - 1) ? "," : "");
+        if (size < 0) {
+            return false;
+        }
+        offset += size;
     }
     return ParseStartOrder(settings, arg);
 }

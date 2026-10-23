@@ -23,7 +23,6 @@ static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const ch
 }
 
 static void InitCars(Race* race) {
-    int used[MAX_CARS] = {0};
     Point pos = race->track->grid.pos;
     Cell* start = &race->track->map[pos.y][pos.x];
 

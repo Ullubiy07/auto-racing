@@ -10,6 +10,7 @@
 Race race;
 
 void RaceStopHandler(int sig) {
+    (void) sig;
     StopRace(&race);
 }
 

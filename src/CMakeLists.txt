@@ -10,7 +10,17 @@ add_executable(race
 	car.h car.c
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-	target_compile_options(race PRIVATE -fsanitize=thread)
-	target_link_options(race PRIVATE -fsanitize=thread)
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    target_compile_options(race PRIVATE -g -fno-omit-frame-pointer -Wall -Wextra -Werror)
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL "AsanDebug")
+    message(STATUS "Configuring for AddressSanitizer...")
+    target_compile_options(race PRIVATE -fsanitize=address,undefined -fno-sanitize-recover=all)
+    target_link_options(race PRIVATE -fsanitize=address,undefined)
+
+elseif (CMAKE_BUILD_TYPE STREQUAL "TsanDebug")
+    message(STATUS "Configuring for ThreadSanitizer...")
+    target_compile_options(race PRIVATE -fsanitize=thread)
+    target_link_options(race PRIVATE -fsanitize=thread)
 endif()

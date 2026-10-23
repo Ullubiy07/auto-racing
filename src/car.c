@@ -101,22 +101,37 @@ bool TryRandomMove(Car* car) {
     return false;
 }
 
-static int CompareCells(const void* lhs, const void* rhs) {
-    Cell* cellA = (Cell*) lhs;
-    Cell* cellB = (Cell*) rhs;
+typedef struct {
+    Car* car;
+    MoveType type;
+} Move;
+
+static int CompareMoves(const void* lhs, const void* rhs) {
+    Move* moveA = (Move*) lhs;
+    Move* moveB = (Move*) rhs;
+    const Cell* cellA = GetNextCell(moveA->car->cell, moveA->type);
+    const Cell* cellB = GetNextCell(moveB->car->cell, moveB->type);
+    if (!cellA && !cellB) {
+        return 0;
+    }
+    if (!cellA) {
+        return 1;
+    }
+    if (!cellB) {
+        return -1;
+    }
     return cellA->road.distToFinish - cellB->road.distToFinish;
 }
 
 bool TryBestMove(Car* car) {
-    MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
-    const Cell* cells[3] = {GetNextCell(car->cell, MOVE_FORWARD), GetNextCell(car->cell, MOVE_LEFT),
-                            GetNextCell(car->cell, MOVE_RIGHT)};
+    Move moves[3] = {(Move){.car = car, .type = MOVE_FORWARD}, (Move){.car = car, .type = MOVE_RIGHT},
+                     (Move){.car = car, .type = MOVE_LEFT}};
 
-    qsort(cells, 3, sizeof(cells[0]), CompareCells);
+    qsort(moves, 3, sizeof(moves[0]), CompareMoves);
 
     pthread_mutex_lock(&car->mutex);
     for (size_t i = 0; i < 3; ++i) {
-        if (TryMove(car, moves[i])) {
+        if (TryMove(car, moves[i].type)) {
             pthread_mutex_unlock(&car->mutex);
             return true;
         }
