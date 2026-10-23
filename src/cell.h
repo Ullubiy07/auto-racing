@@ -93,4 +93,6 @@ bool TryTakeCell(Cell* cell, Entity e);
 
 void LeaveCell(Cell* cell);
 
+Entity CellEntity(Cell* cell);
+
 #endif

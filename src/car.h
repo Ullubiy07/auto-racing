@@ -5,7 +5,6 @@
 
 #include <pthread.h>
 #include <stddef.h>
-#include <stdatomic.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
@@ -32,18 +31,16 @@ typedef struct Car {
 
     bool hasPassedStart; // Прошла ли машина линию старта
     bool isOut;          // Сошла ли машина с дистанции
-
-    atomic_bool isStopped;
-    pthread_t thread;
+    
     pthread_mutex_t mutex;
-    pthread_cond_t sleep;
+    pthread_t thread;
 } Car;
 
 // Инициализация машины на стартовой решетке
 void InitCar(Car* car, char* driverName, Team team, const Cell* cell);
 
-void* RunCar(void* car);
+bool TryRandomMove(Car* car);
 
-void StopCar(Car* car);
+bool TryBestMove(Car* car);
 
 #endif

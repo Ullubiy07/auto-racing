@@ -16,14 +16,9 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->laps = 0;
 
     car->hasPassedStart = false;
-    car->isStopped = false;
     car->isOut = false;
 
     pthread_mutex_init(&car->mutex, NULL);
-
-    pthread_condattr_t attr;
-    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-    pthread_cond_init(&car->sleep, &attr);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {
@@ -91,15 +86,18 @@ static void ShuffleMoves(MoveType* moves, size_t n) {
     }
 }
 
-static bool TryRandomMove(Car* car) {
+bool TryRandomMove(Car* car) {
     MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
     ShuffleMoves(moves, 3);
 
+    pthread_mutex_lock(&car->mutex);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i])) {
+            pthread_mutex_unlock(&car->mutex);
             return true;
         }
     }
+    pthread_mutex_unlock(&car->mutex);
     return false;
 }
 
@@ -109,58 +107,20 @@ static int CompareCells(const void* lhs, const void* rhs) {
     return cellA->road.distToFinish - cellB->road.distToFinish;
 }
 
-static bool TryBestMove(Car* car) {
+bool TryBestMove(Car* car) {
     MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
     const Cell* cells[3] = {GetNextCell(car->cell, MOVE_FORWARD), GetNextCell(car->cell, MOVE_LEFT),
                             GetNextCell(car->cell, MOVE_RIGHT)};
 
     qsort(cells, 3, sizeof(cells[0]), CompareCells);
 
+    pthread_mutex_lock(&car->mutex);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i])) {
+            pthread_mutex_unlock(&car->mutex);
             return true;
         }
     }
+    pthread_mutex_unlock(&car->mutex);
     return false;
-}
-
-void StopCar(Car* car) {
-    car->isStopped = true;
-    pthread_cond_signal(&car->sleep);
-}
-
-void* RunCar(void* arg) {
-    Car* car = arg;
-
-    int baseSleepTime = 1000 * 80;
-    unsigned int seed = 0;
-
-    for (int i = 0; car->driverName[i] != '\0'; ++i) {
-        seed = seed * 37 + car->driverName[i];
-    }
-
-    bool (*TryMoveFunc)(Car*);
-
-    while (!car->isStopped) {
-        TryMoveFunc = TryBestMove;
-        if (rand() % 2) {
-            TryMoveFunc = TryRandomMove;
-        }
-
-        int sleepTime = baseSleepTime + (rand_r(&seed) % 100) * 1000;
-        if (!TryMoveFunc(car)) {
-            sleepTime += (rand_r(&seed) % 50) * 1000;
-        }
-
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        ts.tv_nsec += sleepTime * 1000;
-        if (ts.tv_nsec >= 1000000000) {
-            ++ts.tv_sec;
-            ts.tv_nsec -= 1000000000;
-        }
-
-        pthread_cond_timedwait(&car->sleep, &car->mutex, &ts);
-    }
-    return NULL;
 }

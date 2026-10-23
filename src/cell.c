@@ -103,3 +103,10 @@ void LeaveCell(Cell* cell) {
     cell->entity.type = ENTITY_NONE;
     pthread_mutex_unlock(&cell->mutex);
 }
+
+Entity CellEntity(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
+    Entity e = cell->entity;
+    pthread_mutex_unlock(&cell->mutex);
+    return e;
+}

@@ -5,8 +5,6 @@
 #include "track.h"
 #include "judge.h"
 
-#include <stdatomic.h>
-
 enum {
     MAX_TEAM_NAME_SIZE = 13,
     MAX_DRIVER_NAME_SIZE = 13,
@@ -35,6 +33,12 @@ typedef struct {
     char mapFile[250];
 } RaceSettings;
 
+typedef struct {
+    bool isOver;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} RaceContext;
+
 // Состояние гонки
 typedef struct {
     Track* track;                 // Гоночная трасса
@@ -43,7 +47,7 @@ typedef struct {
     Car cars[MAX_CARS];           // Машины, участвующие в гонке
     int carCount;                 // Количество машин
 
-    atomic_bool isStopped;
+    RaceContext ctx;
 } Race;
 
 // Инициализировать гонку
