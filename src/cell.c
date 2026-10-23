@@ -78,6 +78,7 @@ bool IsCellDriveable(CellType type) {
 void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->x = x;
     cell->y = y;
+    cell->color = 37;
     cell->type = type;
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;

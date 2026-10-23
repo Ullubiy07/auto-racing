@@ -79,6 +79,7 @@ typedef struct {
 typedef struct cell_t {
     int x;
     int y;
+    int color;
     CellType type;
     Entity entity;
     Road road;

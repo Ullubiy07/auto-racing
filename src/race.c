@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "cell.h"
 
 static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
     for (int i = 0; i < settings->teamCount; ++i) {
@@ -67,16 +68,16 @@ static void DrawRace(Race* race) {
     ClearScreen();
     for (int i = 0; i < race->track->height; ++i) {
         for (int j = 0; j < race->track->width; ++j) {
-            Cell cell = race->track->map[i][j];
-            Car* car = cell.entity.data;
+            Cell* cell = &race->track->map[i][j];
+            Car* car = cell->entity.data;
 
             // Машина сошла с дистанции но клетка не очищена
-            assert(!(cell.entity.type == ENTITY_CAR && car->isOut));
+            assert(!(cell->entity.type == ENTITY_CAR && car->isOut));
 
-            if (cell.entity.type == ENTITY_CAR && !car->isOut) {
+            if (cell->entity.type == ENTITY_CAR && !car->isOut) {
                 dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
             } else {
-                dprintf(1, "%s", GetCellInfo(cell.type)->outSymbol);
+                dprintf(1, "\x1b[%dm%s\x1b[0m", cell->color, GetCellInfo(cell->type)->outSymbol);
             }
         }
         dprintf(1, "\n");
@@ -84,13 +85,32 @@ static void DrawRace(Race* race) {
     DrawLeaderBoard(&race->judge);
 }
 
+void PaintStartLine(Race* race, int color) {
+    for (int i = 0; i < race->track->height; ++i) {
+        for (int j = 0; j < race->track->width; ++j) {
+            Cell* cell = &race->track->map[i][j];
+            if (IsCellStart(cell->type)) {
+                cell->color = color;
+            }
+        }
+    }
+}
+
 void StopRace(Race* race) {
     race->isStopped = true;
 }
 
 void RunRace(Race* race) {
+    PaintStartLine(race, 31);
     DrawRace(race);
-    usleep(1000 * 1000);
+    sleep(1);
+
+    PaintStartLine(race, 33);
+    DrawRace(race);
+    sleep(1);
+
+    PaintStartLine(race, 32);
+    DrawRace(race);
 
     for (int i = 0; i < race->carCount; ++i) {
         if (pthread_create(&race->cars[i].thread, NULL, RunCar, &race->cars[i])) {
