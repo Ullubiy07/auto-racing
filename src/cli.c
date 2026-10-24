@@ -160,17 +160,17 @@ static bool ParseLogFile(RaceSettings* settings, const char* arg) {
 }
 
 static void PrintHelpUsage(const char* progName) {
-    printf("Usage: %s [OPTION]...\n", progName);
-    printf("Options:\n");
-    printf("  -t, --team  \"NAME:COLOR:DRIVER1,DRIVER2,...\"   Add a team with drivers\n");
-    printf(
+    dprintf(1, "Usage: %s [OPTION]...\n", progName);
+    dprintf(1, "Options:\n");
+    dprintf(1, "  -t, --team  \"NAME:COLOR:DRIVER1,DRIVER2,...\"   Add a team with drivers\n");
+    dprintf(
+        1,
         "  -s, --start \"DRIVER1,DRIVER2,...\"              Specify start order by driver names (default: random)\n");
-    printf("  -r, --rounds N                                 Set max rounds (default: unlimited)\n");
-    printf("  -l, --laps N                                   Set max laps (default: 1)\n");
-    printf("  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
-    printf("  -m, --map FILE                                 Specify path to track map\n");
-    printf("  -o, --output FILE                              Specify path to save race report log\n");
-    printf("  -h, --help                                     Print help message\n");
+    dprintf(1, "  -l, --laps N                                   Set max laps (default: 1)\n");
+    dprintf(1, "  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
+    dprintf(1, "  -m, --map FILE                                 Specify path to track map\n");
+    dprintf(1, "  -o, --output FILE                              Specify path to save race report log\n");
+    dprintf(1, "  -h, --help                                     Print help message\n");
 }
 
 static bool MakeRandomStartOrder(RaceSettings* settings) {
@@ -217,23 +217,18 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasStartOrder = false;
     bool hasMap = false;
 
-    static struct option longOptions[] = {{"team", required_argument, NULL, 't'},
-                                          {"start", required_argument, NULL, 's'},
-                                          {"rounds", required_argument, NULL, 'r'},
-                                          {"laps", required_argument, NULL, 'l'},
-                                          {"delay", required_argument, NULL, 'd'},
-                                          {"map", required_argument, NULL, 'm'},
-                                          {"help", no_argument, NULL, 'h'},
-                                          {"output", no_argument, NULL, 'o'},
-                                          {NULL, 0, NULL, 0}};
+    static struct option longOptions[] = {
+        {"team", required_argument, NULL, 't'}, {"start", required_argument, NULL, 's'},
+        {"laps", required_argument, NULL, 'l'}, {"delay", required_argument, NULL, 'd'},
+        {"map", required_argument, NULL, 'm'},  {"help", no_argument, NULL, 'h'},
+        {"output", no_argument, NULL, 'o'},     {NULL, 0, NULL, 0}};
     int opt;
 
     settings->rules.maxLaps = 1;
-    settings->rules.maxRounds = INT_MAX;
     settings->delayMs = 50;
     memset(settings->logFile, 0, sizeof(settings->logFile));
 
-    while ((opt = getopt_long(argc, argv, "t:s:r:l:d:m:o:h", longOptions, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "t:s:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
         case 't':
             if (!ParseTeam(settings, optarg)) {
@@ -249,16 +244,22 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
             hasStartOrder = true;
             break;
 
-        case 'r':
-            settings->rules.maxRounds = atoi(optarg);
-            break;
-
         case 'l':
-            settings->rules.maxLaps = atoi(optarg);
+            int laps = atoi(optarg);
+            if (laps < 0) {
+                dprintf(2, "Max laps must be non-negative");
+                return false;
+            }
+            settings->rules.maxLaps = laps;
             break;
 
         case 'd':
-            settings->delayMs = atoi(optarg);
+            int delay = atoi(optarg);
+            if (delay <= 0) {
+                dprintf(2, "Delay must be positive");
+                return false;
+            }
+            settings->delayMs = delay;
             break;
 
         case 'm':
@@ -277,7 +278,8 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
         case 'h':
         case '?':
             PrintHelpUsage(argv[0]);
-            return false;
+            exit(0);
+            break;
 
         default:
             return false;

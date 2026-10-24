@@ -12,7 +12,6 @@ enum {
 
 // Правила, которыми руководствуется судья
 typedef struct {
-    int maxRounds;  // Предельное число раундов
     int maxLaps;    // Всего кругов
 } JudgeRules;
 
