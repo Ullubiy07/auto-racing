@@ -29,5 +29,6 @@ int main(int argc, char* argv[]) {
     LoadTrack(&track, settings.mapFile);
     InitRace(&race, &track, &settings);
     RunRace(&race);
+    SaveRaceLog(&race, "");
     return 0;
 }

@@ -37,10 +37,14 @@ typedef struct {
 
 typedef struct {
     atomic_bool isOver;
-    atomic_bool isTerminated;
+    atomic_bool isInterrupted;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } RaceContext;
+
+typedef struct {
+    double duration;
+} RaceStats;
 
 // Состояние гонки
 typedef struct {
@@ -50,6 +54,7 @@ typedef struct {
     Car cars[MAX_CARS];           // Машины, участвующие в гонке
     int carCount;                 // Количество машин
 
+    RaceStats stats;
     RaceContext ctx;
 } Race;
 
@@ -60,5 +65,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings);
 void RunRace(Race* race);
 
 void TerminateRace(Race* race);
+
+void SaveRaceLog(Race* race, const char* fileName);
 
 #endif

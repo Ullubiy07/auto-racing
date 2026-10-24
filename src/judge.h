@@ -33,9 +33,11 @@ void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules);
 bool IsRaceOver(const Judge* judge);
 
 // Вывести таблицу лидеров на экран
-void DrawLeaderBoard(Judge* judge);
+void DrawLeaderBoard(Judge* judge, int fd);
+
+
 
 // Объявить победителя гонки
-void AnnounceWinner(const Judge* judge);
+void AnnounceWinner(const Judge* judge, int fd);
 
 #endif
