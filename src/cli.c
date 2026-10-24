@@ -149,6 +149,18 @@ static bool ParseMapFile(RaceSettings* settings, const char* arg) {
     return true;
 }
 
+static bool ParseLogFile(RaceSettings* settings, const char* arg) {
+    int size = snprintf(settings->logFile, sizeof(settings->logFile), "%s", arg);
+    if (size < 0) {
+        return false;
+    }
+    if ((size_t) size >= sizeof(settings->logFile)) {
+        dprintf(2, "Log file path is too long: %zu chars\n", sizeof(settings->logFile) - 1);
+        return false;
+    }
+    return true;
+}
+
 static void PrintHelpUsage(const char* progName) {
     printf("Usage: %s [OPTION]...\n", progName);
     printf("Options:\n");
@@ -158,7 +170,8 @@ static void PrintHelpUsage(const char* progName) {
     printf("  -r, --rounds N                                 Set max rounds (default: unlimited)\n");
     printf("  -l, --laps N                                   Set max laps (default: 1)\n");
     printf("  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
-    printf("  -m, --map FILE                                 Specify track map\n");
+    printf("  -m, --map FILE                                 Specify path to track map\n");
+    printf("  -o, --output FILE                              Specify path to save race report log\n");
     printf("  -h, --help                                     Print help message\n");
 }
 
@@ -207,18 +220,23 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasStartOrder = false;
     bool hasMap = false;
 
-    static struct option longOptions[] = {
-        {"team", required_argument, NULL, 't'},   {"start", required_argument, NULL, 's'},
-        {"rounds", required_argument, NULL, 'r'}, {"laps", required_argument, NULL, 'l'},
-        {"delay", required_argument, NULL, 'd'},  {"map", required_argument, NULL, 'm'},
-        {"help", no_argument, NULL, 'h'},         {NULL, 0, NULL, 0}};
+    static struct option longOptions[] = {{"team", required_argument, NULL, 't'},
+                                          {"start", required_argument, NULL, 's'},
+                                          {"rounds", required_argument, NULL, 'r'},
+                                          {"laps", required_argument, NULL, 'l'},
+                                          {"delay", required_argument, NULL, 'd'},
+                                          {"map", required_argument, NULL, 'm'},
+                                          {"help", no_argument, NULL, 'h'},
+                                          {"output", no_argument, NULL, 'o'},
+                                          {NULL, 0, NULL, 0}};
     int opt;
 
     settings->rules.maxLaps = 1;
     settings->rules.maxRounds = INT_MAX;
     settings->delayMs = 50;
+    memset(settings->logFile, 0, sizeof(settings->logFile));
 
-    while ((opt = getopt_long(argc, argv, "t:s:r:l:d:m:h", longOptions, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "t:s:r:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
         case 't':
             if (!ParseTeam(settings, optarg)) {
@@ -251,6 +269,12 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
                 return false;
             }
             hasMap = true;
+            break;
+
+        case 'o':
+            if (!ParseLogFile(settings, optarg)) {
+                return false;
+            }
             break;
 
         case 'h':

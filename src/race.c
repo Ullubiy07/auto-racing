@@ -231,16 +231,28 @@ void RunRace(Race* race) {
         (double) (endTime.tv_sec - startTime.tv_sec) + (double) (endTime.tv_nsec - startTime.tv_nsec) / 1e9;
 }
 
-void SaveRaceLog(Race* race, const char* fileName) {
-    int fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+void SaveRaceLog(Race* race) {
+    time_t now = time(NULL);
+    struct tm* localTime = localtime(&now);
+
+    int fd;
+    if (strlen(race->settings->logFile) == 0) {
+        char fileName[250];
+        strftime(fileName, sizeof(fileName), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localTime);
+        fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        dprintf(1, "Race report log successfully saved to: %s\n", fileName);
+    } else {
+        fd = open(race->settings->logFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        dprintf(1, "Race report log successfully saved to: %s\n", race->settings->logFile);
+    }
+
     if (fd < 0) {
         perror("failed to open log file");
         return;
     }
 
-    time_t now = time(NULL);
     char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%d-%m-%Y %H:%M:%S", localtime(&now));
+    strftime(timestamp, sizeof(timestamp), "%d-%m-%Y %H:%M:%S", localTime);
 
     const char* status = race->ctx.isInterrupted ? "Interrupted by user (SIGINT)" : "Completed successfully";
 

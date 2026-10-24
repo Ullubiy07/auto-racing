@@ -33,6 +33,7 @@ typedef struct {
 
     int delayMs;
     char mapFile[250];
+    char logFile[250];
 } RaceSettings;
 
 typedef struct {
@@ -66,6 +67,6 @@ void RunRace(Race* race);
 
 void TerminateRace(Race* race);
 
-void SaveRaceLog(Race* race, const char* fileName);
+void SaveRaceLog(Race* race);
 
 #endif
