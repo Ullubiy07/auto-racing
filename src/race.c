@@ -53,6 +53,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
     race->settings = settings;
     race->carCount = settings->carCount;
     race->ctx.isOver = false;
+    race->ctx.isTerminated = false;
 
     pthread_mutex_init(&race->ctx.mutex, NULL);
 
@@ -122,14 +123,7 @@ void* RunCar(void* arg) {
 
     bool (*TryMoveFunc)(Car*);
 
-    while (true) {
-        pthread_mutex_lock(&ctx->mutex);
-        if (ctx->isOver) {
-            pthread_mutex_unlock(&ctx->mutex);
-            break;
-        }
-        pthread_mutex_unlock(&ctx->mutex);
-
+    while (!ctx->isOver) {
         TryMoveFunc = TryBestMove;
         if (rand() % 2) {
             TryMoveFunc = TryRandomMove;
@@ -159,11 +153,8 @@ void* RunCar(void* arg) {
     return NULL;
 }
 
-void StopRace(Race* race) {
-    pthread_mutex_lock(&race->ctx.mutex);
-    race->ctx.isOver = true;
-    pthread_mutex_unlock(&race->ctx.mutex);
-    pthread_cond_broadcast(&race->ctx.cond);
+void TerminateRace(Race* race) {
+    race->ctx.isTerminated = true;
 }
 
 void RunRace(Race* race) {
@@ -188,12 +179,16 @@ void RunRace(Race* race) {
         }
     }
 
-    while (!IsRaceOver(&race->judge) && !race->ctx.isOver) {
+    while (!IsRaceOver(&race->judge) && !race->ctx.isTerminated) {
         DrawRace(race);
         usleep(race->settings->delayMs * 1000);
     }
 
-    StopRace(race);
+    pthread_mutex_lock(&race->ctx.mutex);
+    race->ctx.isOver = true;
+    pthread_cond_broadcast(&race->ctx.cond);
+    pthread_mutex_unlock(&race->ctx.mutex);
+
     for (int i = 0; i < race->carCount; ++i) {
         if (pthread_join(race->cars[i].thread, NULL)) {
             perror("join pthread failed");
@@ -201,5 +196,9 @@ void RunRace(Race* race) {
     }
 
     DrawRace(race);
-    AnnounceWinner(&race->judge);
+    if (IsRaceOver(&race->judge)) {
+        AnnounceWinner(&race->judge);
+    } else {
+        dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
+    }
 }

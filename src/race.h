@@ -5,6 +5,8 @@
 #include "track.h"
 #include "judge.h"
 
+#include <stdatomic.h>
+
 enum {
     MAX_TEAM_NAME_SIZE = 13,
     MAX_DRIVER_NAME_SIZE = 13,
@@ -34,7 +36,8 @@ typedef struct {
 } RaceSettings;
 
 typedef struct {
-    bool isOver;
+    atomic_bool isOver;
+    atomic_bool isTerminated;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } RaceContext;
@@ -56,6 +59,6 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings);
 // Запустить гонку
 void RunRace(Race* race);
 
-void StopRace(Race* race);
+void TerminateRace(Race* race);
 
 #endif

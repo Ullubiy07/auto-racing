@@ -9,14 +9,15 @@
 
 Race race;
 
-void RaceStopHandler(int sig) {
-    (void) sig;
-    StopRace(&race);
+void RaceSignalHandler(int sig) {
+    if (sig == SIGINT) {
+        TerminateRace(&race);
+    }
 }
 
 int main(int argc, char* argv[]) {
     srand(time(NULL));
-    signal(SIGINT, RaceStopHandler);
+    signal(SIGINT, RaceSignalHandler);
 
     Track track;
     RaceSettings settings;
