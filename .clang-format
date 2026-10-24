@@ -1,5 +1,5 @@
 LineEnding: LF
-BasedOnStyle: LLVM
+BasedOnStyle: Google
 IndentWidth: 4
 ColumnLimit: 120
 UseTab: Never

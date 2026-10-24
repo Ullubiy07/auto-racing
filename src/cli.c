@@ -85,7 +85,6 @@ static bool ParseTeam(RaceSettings* settings, const char* arg) {
     team->driverCount = 0;
 
     for (char* driver = strtok(drivers, ","); driver; driver = strtok(NULL, ",")) {
-
         if (team->driverCount >= MAX_CARS_IN_TEAM) {
             dprintf(2, "Exceeded max drivers per team limit: %d\n", MAX_CARS_IN_TEAM);
             return false;
@@ -119,7 +118,6 @@ static bool ParseStartOrder(RaceSettings* settings, const char* arg) {
     settings->startOrderSize = 0;
 
     for (char* driver = strtok(buf, ","); driver; driver = strtok(NULL, ",")) {
-
         if (settings->startOrderSize >= MAX_CARS) {
             dprintf(2, "Start order size exceeds max number of cars: %d\n", MAX_CARS);
             return false;
@@ -180,7 +178,6 @@ static bool MakeRandomStartOrder(RaceSettings* settings) {
 
     for (int i = 0, k = 0; i < settings->teamCount; ++i) {
         for (int j = 0; j < settings->teams[i].driverCount; ++j, ++k) {
-
             char* driver = settings->teams[i].drivers[j];
             size_t size = strlen(driver);
 

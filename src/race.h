@@ -23,13 +23,13 @@ typedef struct {
 // Настройки гонки
 typedef struct {
     TeamConfig teams[MAX_TEAMS];
-    int teamCount; // Количество команд
+    int teamCount;  // Количество команд
     int carCount;
 
-    char startOrder[MAX_CARS][MAX_DRIVER_NAME_SIZE]; // Порядок старта: массив символов машин вдоль внешней дорожки
+    char startOrder[MAX_CARS][MAX_DRIVER_NAME_SIZE];  // Порядок старта: массив символов машин вдоль внешней дорожки
     int startOrderSize;
 
-    JudgeRules rules; // Правила гонки
+    JudgeRules rules;  // Правила гонки
 
     int delayMs;
     char mapFile[250];
@@ -49,11 +49,11 @@ typedef struct {
 
 // Состояние гонки
 typedef struct {
-    Track* track;                 // Гоночная трасса
-    const RaceSettings* settings; // Настройки гонки
-    Judge judge;                  // Судья, контролирующий гонку
-    Car cars[MAX_CARS];           // Машины, участвующие в гонке
-    int carCount;                 // Количество машин
+    Track* track;                  // Гоночная трасса
+    const RaceSettings* settings;  // Настройки гонки
+    Judge judge;                   // Судья, контролирующий гонку
+    Car cars[MAX_CARS];            // Машины, участвующие в гонке
+    int carCount;                  // Количество машин
 
     RaceStats stats;
     RaceContext ctx;

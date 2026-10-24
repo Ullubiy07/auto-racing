@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "track.h"
-#include "cell.h"
 
 typedef struct {
     Point pos;
@@ -46,7 +45,6 @@ static void CalcDistances(Track* track) {
     for (int y = 0; y < track->height; ++y) {
         for (int x = 0; x < track->width; ++x) {
             if (IsCellStart(track->map[y][x].type)) {
-
                 Direction startDir = track->grid.dir;
                 Direction backDir = {-startDir.dx, -startDir.dy};
                 Point backPos = {x + backDir.dx, y + backDir.dy};

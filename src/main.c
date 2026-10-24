@@ -1,9 +1,7 @@
-#include <pthread.h>
 #include <time.h>
 #include <stdlib.h>
 #include <signal.h>
 
-#include "track.h"
 #include "race.h"
 #include "cli.h"
 

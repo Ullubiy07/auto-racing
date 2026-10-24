@@ -10,7 +10,6 @@
 #include <fcntl.h>
 
 #include "race.h"
-#include "judge.h"
 
 static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
     for (int i = 0; i < settings->teamCount; ++i) {
@@ -74,8 +73,8 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
 }
 
 static void ClearScreen() {
-    dprintf(1, "\x1b[2J");   // Очистить весь экран
-    dprintf(1, "\x1b[0;0f"); // Переместить курсор в левый верхний угол
+    dprintf(1, "\x1b[2J");    // Очистить весь экран
+    dprintf(1, "\x1b[0;0f");  // Переместить курсор в левый верхний угол
 }
 
 static void DrawRace(Race* race) {

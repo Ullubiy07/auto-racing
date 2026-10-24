@@ -9,7 +9,7 @@
 // Команда, в которой состоят машины
 typedef struct Team {
     char* name;
-    int color; // Цвет команды
+    int color;  // Цвет команды
 } Team;
 
 // Возможные ходы машины
@@ -23,15 +23,15 @@ typedef enum {
 // Машина, участвующая в гонке
 typedef struct Car {
     char* driverName;
-    Team team;        // Команда, в которой состоит машина
-    const Cell* cell; // Местоположение (x, y)
+    Team team;         // Команда, в которой состоит машина
+    const Cell* cell;  // Местоположение (x, y)
 
-    int laps;      // Число пройденных кругов
-    Point prevPos; // Предыдущее местоположение
+    int laps;       // Число пройденных кругов
+    Point prevPos;  // Предыдущее местоположение
 
-    bool hasPassedStart; // Прошла ли машина линию старта
-    bool isOut;          // Сошла ли машина с дистанции
-    
+    bool hasPassedStart;  // Прошла ли машина линию старта
+    bool isOut;           // Сошла ли машина с дистанции
+
     pthread_mutex_t mutex;
     pthread_t thread;
 } Car;
