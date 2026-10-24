@@ -65,7 +65,7 @@ void InitRace(Race* race, Track* track, const RaceSettings* settings) {
     InitJudge(&race->judge, race->cars, race->carCount, &race->settings->rules);
 }
 
-void ClearScreen() {
+static void ClearScreen() {
     dprintf(1, "\x1b[2J");   // Очистить весь экран
     dprintf(1, "\x1b[0;0f"); // Переместить курсор в левый верхний угол
 }
@@ -93,7 +93,7 @@ static void DrawRace(Race* race) {
     DrawLeaderBoard(&race->judge);
 }
 
-void PaintStartLine(Race* race, int color) {
+static void PaintStartLine(Race* race, int color) {
     for (int i = 0; i < race->track->height; ++i) {
         for (int j = 0; j < race->track->width; ++j) {
             Cell* cell = &race->track->map[i][j];
@@ -104,12 +104,29 @@ void PaintStartLine(Race* race, int color) {
     }
 }
 
+static void DrawRaceStart(Race* race) {
+    if (!race->ctx.isTerminated) {
+        PaintStartLine(race, 31);
+        DrawRace(race);
+        sleep(1);
+    }
+    if (!race->ctx.isTerminated) {
+        PaintStartLine(race, 33);
+        DrawRace(race);
+        sleep(1);
+    }
+    if (!race->ctx.isTerminated) {
+        PaintStartLine(race, 32);
+        DrawRace(race);
+    }
+}
+
 typedef struct {
     Car* car;
     RaceContext* ctx;
 } CarThreadArgs;
 
-void* RunCar(void* arg) {
+static void* RunCar(void* arg) {
     CarThreadArgs* args = arg;
     RaceContext* ctx = args->ctx;
     Car* car = args->car;
@@ -158,16 +175,11 @@ void TerminateRace(Race* race) {
 }
 
 void RunRace(Race* race) {
-    PaintStartLine(race, 31);
-    DrawRace(race);
-    sleep(1);
-
-    PaintStartLine(race, 33);
-    DrawRace(race);
-    sleep(1);
-
-    PaintStartLine(race, 32);
-    DrawRace(race);
+    DrawRaceStart(race);
+    if (race->ctx.isTerminated) {
+        dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
+        return;
+    }
 
     CarThreadArgs args[MAX_CARS];
     for (int i = 0; i < race->carCount; ++i) {
