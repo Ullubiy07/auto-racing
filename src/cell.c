@@ -1,25 +1,26 @@
+#include <pthread.h>
 #include <string.h>
 
 #include "cell.h"
 
 static const CellInfo cells[] = {
-	{ LAYOUT_WALL_HOR,       "-",  "──" },
-	{ LAYOUT_WALL_VERT,      "|",  "│ " },
-	{ LAYOUT_WALL_TOP_LEFT,  "1",  "┌─" },
-	{ LAYOUT_WALL_TOP_RIGHT, "2",  "┐ " },
-	{ LAYOUT_WALL_BOT_LEFT,  "3",  "└─" },
-	{ LAYOUT_WALL_BOT_RIGHT, "4",  "┘ " },
-	{ LAYOUT_ROAD,           ".",  ". " },
-	{ LAYOUT_EMPTY,          " ",  "  " },
-	{ LAYOUT_TURN_RIGHT,     ">",  ". " },
-	{ LAYOUT_TURN_LEFT,      "<",  ". " },
-	{ LAYOUT_TURN_UP,        "^",  ". " },
-	{ LAYOUT_TURN_DOWN,      "v",  ". " },
-	{ LAYOUT_START_LEFT,     "Ll", "▓ " },
-	{ LAYOUT_START_RIGHT,    "Rr", "▓ " },
-	{ LAYOUT_START_DOWN,     "Dd", "▓ " },
-	{ LAYOUT_START_UP,       "Uu", "▓ " },
-	{ LAYOUT_UNKNOWN,        "?",  "? " }
+    { LAYOUT_WALL_HOR,       "-",  "──" },
+    { LAYOUT_WALL_VERT,      "|",  "│ " },
+    { LAYOUT_WALL_TOP_LEFT,  "1",  "┌─" },
+    { LAYOUT_WALL_TOP_RIGHT, "2",  "┐ " },
+    { LAYOUT_WALL_BOT_LEFT,  "3",  "└─" },
+    { LAYOUT_WALL_BOT_RIGHT, "4",  "┘ " },
+    { LAYOUT_ROAD,           ".",  ". " },
+    { LAYOUT_EMPTY,          " ",  "  " },
+    { LAYOUT_TURN_RIGHT,     ">",  ". " },
+    { LAYOUT_TURN_LEFT,      "<",  ". " },
+    { LAYOUT_TURN_UP,        "^",  ". " },
+    { LAYOUT_TURN_DOWN,      "v",  ". " },
+    { LAYOUT_START_LEFT,     "Ll", "▓ " },
+    { LAYOUT_START_RIGHT,    "Rr", "▓ " },
+    { LAYOUT_START_DOWN,     "Dd", "▓ " },
+    { LAYOUT_START_UP,       "Uu", "▓ " },
+    { LAYOUT_UNKNOWN,        "?",  "? " }
 };
 
 static const size_t CELL_MAP_SIZE = sizeof(cells) / sizeof(cells[0]);
@@ -62,20 +63,50 @@ Direction GetCellDirection(CellType type) {
     return (Direction){0, 0};
 }
 
-bool IsCellTurn(CellType type) { return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN; }
-
-bool IsCellStart(CellType type) { return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN; }
-
-bool IsCellDriveable(CellType type) { return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type); }
-
-bool IsCellFree(const Cell* cell) { return cell->entity.type == ENTITY_NONE; }
-
-void ClearCell(Cell* cell) {
-    cell->entity.data = NULL;
-    cell->entity.type = ENTITY_NONE;
+bool IsCellTurn(CellType type) {
+    return LAYOUT_TURN_RIGHT <= type && type <= LAYOUT_TURN_DOWN;
 }
 
-void SetCellEntity(Cell* cell, EntityType type, void* data) {
-    cell->entity.data = data;
-    cell->entity.type = type;
+bool IsCellStart(CellType type) {
+    return LAYOUT_START_RIGHT <= type && type <= LAYOUT_START_DOWN;
+}
+
+bool IsCellDriveable(CellType type) {
+    return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
+}
+
+void InitCell(Cell* cell, int x, int y, CellType type) {
+    cell->x = x;
+    cell->y = y;
+    cell->color = 37;
+    cell->type = type;
+    cell->entity.data = NULL;
+    cell->entity.type = ENTITY_NONE;
+
+    pthread_mutex_init(&cell->mutex, NULL);
+}
+
+bool TryTakeCell(Cell* cell, Entity e) {
+    bool res = false;
+    pthread_mutex_lock(&cell->mutex);
+    if (cell->entity.type == ENTITY_NONE) {
+        cell->entity = e;
+        res = true;
+    }
+    pthread_mutex_unlock(&cell->mutex);
+    return res;
+}
+
+void LeaveCell(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
+    cell->entity.data = NULL;
+    cell->entity.type = ENTITY_NONE;
+    pthread_mutex_unlock(&cell->mutex);
+}
+
+Entity CellEntity(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
+    Entity e = cell->entity;
+    pthread_mutex_unlock(&cell->mutex);
+    return e;
 }

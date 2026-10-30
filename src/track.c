@@ -17,11 +17,17 @@ typedef struct {
     int tail;
 } Queue;
 
-static void QueuePush(Queue* queue, Node node) { queue->data[queue->tail++] = node; }
+static void QueuePush(Queue* queue, Node node) {
+    queue->data[queue->tail++] = node;
+}
 
-static Node QueuePop(Queue* queue) { return queue->data[queue->head++]; }
+static Node QueuePop(Queue* queue) {
+    return queue->data[queue->head++];
+}
 
-static bool IsQueueEmpty(const Queue* queue) { return queue->head >= queue->tail; }
+static bool IsQueueEmpty(const Queue* queue) {
+    return queue->head >= queue->tail;
+}
 
 static bool IsInsideTrack(const Track* track, Point pos) {
     return pos.x >= 0 && pos.x < track->width && pos.y >= 0 && pos.y < track->height;
@@ -39,7 +45,6 @@ static void CalcDistances(Track* track) {
     for (int y = 0; y < track->height; ++y) {
         for (int x = 0; x < track->width; ++x) {
             if (IsCellStart(track->map[y][x].type)) {
-
                 Direction startDir = track->grid.dir;
                 Direction backDir = {-startDir.dx, -startDir.dy};
                 Point backPos = {x + backDir.dx, y + backDir.dy};
@@ -237,11 +242,7 @@ void LoadTrack(Track* track, const char* fileName) {
                 exit(2);
             }
 
-            Cell* cell = &track->map[track->height][x];
-            cell->type = type;
-            cell->x = x;
-            cell->y = track->height;
-            SetCellEntity(cell, ENTITY_NONE, NULL);
+            InitCell(&track->map[track->height][x], x, track->height, type);
             ++x;
         }
     }

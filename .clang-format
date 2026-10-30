@@ -1,5 +1,5 @@
 LineEnding: LF
-BasedOnStyle: LLVM
+BasedOnStyle: Google
 IndentWidth: 4
 ColumnLimit: 120
 UseTab: Never
@@ -10,7 +10,7 @@ IndentGotoLabels: false
 InsertBraces: true
 InsertNewlineAtEOF: true
 AllowShortEnumsOnASingleLine: true
-
+AllowShortFunctionsOnASingleLine: None
 PointerAlignment: Left
 
 BreakBeforeBraces: Custom
