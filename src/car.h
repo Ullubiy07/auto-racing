@@ -3,12 +3,13 @@
 
 #include "cell.h"
 
+#include <pthread.h>
 #include <stddef.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
     char* name;
-    int color; // Цвет команды
+    int color;  // Цвет команды
 } Team;
 
 // Возможные ходы машины
@@ -22,24 +23,24 @@ typedef enum {
 // Машина, участвующая в гонке
 typedef struct Car {
     char* driverName;
-    Team team;        // Команда, в которой состоит машина
-    const Cell* cell; // Местоположение (x, y)
+    Team team;         // Команда, в которой состоит машина
+    const Cell* cell;  // Местоположение (x, y)
 
-    int laps;      // Число пройденных кругов
-    Point prevPos; // Предыдущее местоположение
+    int laps;       // Число пройденных кругов
+    Point prevPos;  // Предыдущее местоположение
 
-    bool hasPassedStart; // Прошла ли машина линию старта
-    bool isBlocked;
-    bool isOut; // Сошла ли машина с дистанции
+    bool hasPassedStart;  // Прошла ли машина линию старта
+    bool isOut;           // Сошла ли машина с дистанции
+
+    pthread_mutex_t mutex;
+    pthread_t thread;
 } Car;
 
 // Инициализация машины на стартовой решетке
 void InitCar(Car* car, char* driverName, Team team, const Cell* cell);
 
-size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget);
+bool TryRandomMove(Car* car);
 
-int GetMoveCost(const Cell* cell, MoveType type);
-
-bool MakeMove(Car* car, MoveType type);
+bool TryBestMove(Car* car);
 
 #endif

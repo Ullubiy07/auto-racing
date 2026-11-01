@@ -1,4 +1,8 @@
+#include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "car.h"
 
@@ -12,8 +16,9 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->laps = 0;
 
     car->hasPassedStart = false;
-    car->isBlocked = false;
     car->isOut = false;
+
+    pthread_mutex_init(&car->mutex, NULL);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {
@@ -30,31 +35,17 @@ static const Cell* GetNextCell(const Cell* cell, MoveType type) {
     return NULL;
 }
 
-int GetMoveCost(const Cell* cell, MoveType type) {
-    switch (type) {
-    case MOVE_FORWARD:
-        return 1;
-    case MOVE_LEFT:
-        return cell->road.lane < cell->road.left->road.lane ? 3 : 1;
-    case MOVE_RIGHT:
-        return cell->road.lane < cell->road.right->road.lane ? 3 : 1;
-    case MOVE_NONE:
-        return 0;
-    }
-    return 0;
-}
-
-static bool CanMove(const Cell* cell, MoveType type) {
-    const Cell* newCell = GetNextCell(cell, type);
-    if (!newCell) {
+static bool CanMove(Car* car, MoveType type) {
+    const Cell* newCell = GetNextCell(car->cell, type);
+    if (!newCell || (newCell->x == car->prevPos.x && newCell->y == car->prevPos.y)) {
         return false;
     }
 
-    bool currentIsTurn = IsCellTurn(cell->type);
+    bool currentIsTurn = IsCellTurn(car->cell->type);
     if ((type == MOVE_LEFT || type == MOVE_RIGHT) && currentIsTurn) {
         return false;
     }
-    return IsCellFree(newCell);
+    return true;
 }
 
 static void MoveCarToCell(Car* car, const Cell* newCell) {
@@ -62,12 +53,16 @@ static void MoveCarToCell(Car* car, const Cell* newCell) {
     car->cell = newCell;
 }
 
-bool MakeMove(Car* car, MoveType type) {
-    if (!CanMove(car->cell, type)) {
+static bool TryMove(Car* car, MoveType type) {
+    if (!CanMove(car, type)) {
         return false;
     }
 
     const Cell* newCell = GetNextCell(car->cell, type);
+    Entity e = {.data = car, .type = ENTITY_CAR};
+    if (!TryTakeCell((Cell*) newCell, e)) {
+        return false;
+    }
 
     // Подсчет кругов
     if (IsCellStart(newCell->type) && !IsCellStart(car->cell->type)) {
@@ -77,53 +72,70 @@ bool MakeMove(Car* car, MoveType type) {
         car->hasPassedStart = true;
     }
 
-    ClearCell((Cell*) car->cell);
+    LeaveCell((Cell*) car->cell);
     MoveCarToCell(car, newCell);
-    SetCellEntity((Cell*) newCell, ENTITY_CAR, car);
     return true;
 }
 
-static size_t GetValidMoves(const Car* car, MoveType* moves, int budget) {
-    MoveType types[] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
-    size_t count = 0;
-
-    for (int i = 0; i < 3; ++i) {
-        const Cell* nextCell = GetNextCell(car->cell, types[i]);
-        if (nextCell && !(nextCell->x == car->prevPos.x && nextCell->y == car->prevPos.y) &&
-            CanMove(car->cell, types[i]) && GetMoveCost(car->cell, types[i]) <= budget) {
-            moves[count++] = types[i];
-        }
+static void ShuffleMoves(MoveType* moves, size_t n) {
+    for (size_t i = 0; i < n; ++i) {
+        int j = rand() % (i + 1);
+        int temp = moves[i];
+        moves[i] = moves[j];
+        moves[j] = temp;
     }
-    return count;
 }
 
-static MoveType GetRandomMove(const Car* car, int budget) {
-    MoveType moves[3];
-    size_t count = GetValidMoves(car, moves, budget);
-    if (count == 0) {
-        return MOVE_NONE;
+bool TryRandomMove(Car* car) {
+    MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
+    ShuffleMoves(moves, 3);
+
+    pthread_mutex_lock(&car->mutex);
+    for (size_t i = 0; i < 3; ++i) {
+        if (TryMove(car, moves[i])) {
+            pthread_mutex_unlock(&car->mutex);
+            return true;
+        }
     }
-    return moves[rand() % count];
+    pthread_mutex_unlock(&car->mutex);
+    return false;
 }
 
-size_t BuildRoute(const Car* car, MoveType* moves, int movesLimit, int maxBudget) {
-    int budget1 = rand() % maxBudget + 1;
-    int budget2 = rand() % maxBudget + 1;
-    int budget = (budget1 > budget2 ? budget1 : budget2);
-    // int budget = maxBudget;
-    Car dummy = *car;
-    int movesDone = 0;
-    dummy.prevPos = (Point){dummy.cell->x, dummy.cell->y};
+typedef struct {
+    Car* car;
+    MoveType type;
+} Move;
 
-    while (movesDone < movesLimit && budget > 0) {
-        MoveType move = GetRandomMove(&dummy, budget);
-        if (move == MOVE_NONE) {
-            break;
-        }
-
-        budget -= GetMoveCost(dummy.cell, move);
-        MoveCarToCell(&dummy, GetNextCell(dummy.cell, move));
-        moves[movesDone++] = move;
+static int CompareMoves(const void* lhs, const void* rhs) {
+    Move* moveA = (Move*) lhs;
+    Move* moveB = (Move*) rhs;
+    const Cell* cellA = GetNextCell(moveA->car->cell, moveA->type);
+    const Cell* cellB = GetNextCell(moveB->car->cell, moveB->type);
+    if (!cellA && !cellB) {
+        return 0;
     }
-    return movesDone;
+    if (!cellA) {
+        return 1;
+    }
+    if (!cellB) {
+        return -1;
+    }
+    return cellA->road.distToFinish - cellB->road.distToFinish;
+}
+
+bool TryBestMove(Car* car) {
+    Move moves[3] = {(Move){.car = car, .type = MOVE_FORWARD}, (Move){.car = car, .type = MOVE_RIGHT},
+                     (Move){.car = car, .type = MOVE_LEFT}};
+
+    qsort(moves, 3, sizeof(moves[0]), CompareMoves);
+
+    pthread_mutex_lock(&car->mutex);
+    for (size_t i = 0; i < 3; ++i) {
+        if (TryMove(car, moves[i].type)) {
+            pthread_mutex_unlock(&car->mutex);
+            return true;
+        }
+    }
+    pthread_mutex_unlock(&car->mutex);
+    return false;
 }
