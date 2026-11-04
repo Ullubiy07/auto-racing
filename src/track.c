@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include "cell.h"
 
 #include "track.h"
 
@@ -82,22 +83,27 @@ static void CalcDistances(Track* track) {
     }
 }
 
-static bool IsMovementClockwiseAt(const Track* track, Point pos, Direction dir) {
+static int SetMovementClockwise(Track* track) {
+    Point pos = track->grid.pos;
+    Direction dir = track->grid.dir;
+
     while (pos.y >= 0 && pos.y < track->height && pos.x >= 0 && pos.x < track->width) {
         CellType type = track->map[pos.y][pos.x].type;
         if (!IsCellDriveable(type)) {
             dprintf(2, "No turn found (hit non-driveable cell)\n");
-            exit(2);
+            return 1;
         }
         if (IsCellTurn(type)) {
             Direction next = GetCellDirection(type);
             int cross = dir.dx * next.dy - dir.dy * next.dx;
-            return cross > 0;
+            track->grid.isClockwise = cross > 0;
+            return 0;
         }
         pos.x += dir.dx;
         pos.y += dir.dy;
     }
-    return false;
+    track->grid.isClockwise = false;
+    return 0;
 }
 
 static void BuildRoadGraph(Track* track) {
@@ -116,7 +122,6 @@ static void BuildRoadGraph(Track* track) {
     Point start = track->grid.pos;
     Road* road = &track->map[start.y][start.x].road;
     road->lane = track->grid.laneCount;
-    bool isClockwise = IsMovementClockwiseAt(track, start, track->grid.dir);
 
     QueuePush(&queue, (Node){start, track->grid.dir});
 
@@ -167,7 +172,7 @@ static void BuildRoadGraph(Track* track) {
                     visited[left.y][left.x] = true;
 
                     Cell* newCell = &track->map[left.y][left.x];
-                    newCell->road.lane = cell->road.lane + (isClockwise ? 1 : -1);
+                    newCell->road.lane = cell->road.lane + (track->grid.isClockwise ? 1 : -1);
 
                     QueuePush(&queue, (Node){left, dir});
                 }
@@ -185,7 +190,7 @@ static void BuildRoadGraph(Track* track) {
                     visited[right.y][right.x] = true;
 
                     Cell* newCell = &track->map[right.y][right.x];
-                    newCell->road.lane = cell->road.lane + (isClockwise ? -1 : 1);
+                    newCell->road.lane = cell->road.lane + (track->grid.isClockwise ? -1 : 1);
 
                     QueuePush(&queue, (Node){right, dir});
                 }
@@ -194,17 +199,17 @@ static void BuildRoadGraph(Track* track) {
     }
 }
 
-static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
+static int LoadFile(const char* fileName, char* buf, size_t bufSize) {
     int fd = open(fileName, O_RDONLY);
     if (fd == -1) {
         perror("Open file error");
-        exit(1);
+        return -1;
     }
     int count = read(fd, buf, bufSize);
     if (count == -1) {
         perror("Read file error");
         close(fd);
-        exit(1);
+        return -1;
     }
     if (close(fd) == -1) {
         perror("Close fd error");
@@ -213,10 +218,13 @@ static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
 }
 
 static Track* NewTrack(int width, int height) {
-    int fd = shm_open("track-shared-memory", O_RDWR | O_CREAT, 0666);
+    char buf[20];
+    snprintf(buf, sizeof(buf), "track-shm-%d", getpid());
+
+    int fd = shm_open(buf, O_RDWR | O_CREAT, 0666);
     if (fd == -1) {
         perror("Shared memory open failed");
-        exit(1);
+        return NULL;
     }
 
     size_t size = sizeof(Track) + height * sizeof(Cell*) + width * height * sizeof(Cell);
@@ -225,10 +233,10 @@ static Track* NewTrack(int width, int height) {
         if (close(fd) == -1) {
             perror("Close fd error");
         }
-        if (shm_unlink("track-shared-memory") == -1) {
+        if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
-        exit(1);
+        return NULL;
     }
 
     Track* track = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -237,10 +245,10 @@ static Track* NewTrack(int width, int height) {
         if (close(fd) == -1) {
             perror("Close fd error");
         }
-        if (shm_unlink("track-shared-memory") == -1) {
+        if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
-        exit(1);
+        return NULL;
     }
 
     if (close(fd) == -1) {
@@ -269,7 +277,10 @@ void DestroyTrack(Track* track) {
     if (munmap(track, size) == -1) {
         perror("Unmap memory failed");
     }
-    if (shm_unlink("track-shared-memory") == -1) {
+
+    char buf[20];
+    snprintf(buf, sizeof(buf), "track-shm-%d", getpid());
+    if (shm_unlink(buf) == -1) {
         perror("Unlink shared memory failed");
     }
 }
@@ -279,6 +290,9 @@ Track* LoadTrack(const char* fileName) {
     const size_t bufSize = MAX_MAP_HEIGHT * MAX_MAP_WIDTH;
     char buf[bufSize];
     int count = LoadFile(fileName, buf, bufSize);
+    if (count == -1) {
+        return NULL;
+    }
 
     int width = 0, col = 0, row = 0;
     int newlineCount = 0;
@@ -298,12 +312,12 @@ Track* LoadTrack(const char* fileName) {
             CellType type = GetCellType(buf[i]);
             if (type == LAYOUT_UNKNOWN) {
                 dprintf(2, "Unknown cell type: '%c'\n", buf[i]);
-                exit(1);
+                return NULL;
             }
 
             if (row >= MAX_MAP_HEIGHT || col >= MAX_MAP_WIDTH) {
                 dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
-                exit(1);
+                return NULL;
             }
             ++col;
         }
@@ -311,6 +325,9 @@ Track* LoadTrack(const char* fileName) {
 
     // Заполнение структуры трассы на основе обработанных данных
     track = NewTrack(width, row);
+    if (!track) {
+        return NULL;
+    }
     track->grid.laneCount = 0;
 
     for (int y = 0, i = 0; y < track->height; ++y) {
@@ -328,6 +345,10 @@ Track* LoadTrack(const char* fileName) {
         }
     }
 
+    if (SetMovementClockwise(track)) {
+        DestroyTrack(track);
+        return NULL;
+    }
     CalcDistances(track);
     BuildRoadGraph(track);
     return track;

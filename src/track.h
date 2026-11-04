@@ -13,6 +13,7 @@ typedef struct {
     Point pos;      // Координаты точки старта (x, y)
     Direction dir;  // Направление движения (dx, dy)
     int laneCount;  // Количество стартовых полос (дорожек)
+    bool isClockwise;
 } Grid;
 
 // Структура, описывающая гоночную трассу

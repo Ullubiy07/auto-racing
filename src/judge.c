@@ -82,11 +82,6 @@ bool IsRaceOver(const Judge* judge) {
     return judge->activeCarCount == 0 || hasWinner;
 }
 
-void AnnounceWinner(const Judge* judge, int fd) {
-    Car* winner = judge->leaderBoard[0];
-    dprintf(fd, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
-}
-
 void DrawLeaderBoard(Judge* judge, int fd) {
     UpdateLeaderBoard(judge);
 

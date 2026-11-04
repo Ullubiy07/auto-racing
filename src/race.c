@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <pthread.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include "race.h"
 
@@ -22,10 +24,27 @@ static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const ch
     return NULL;
 }
 
-static void InitCars(Race* race) {
+static void DestroyRaceResources(Race* race) {
+    pthread_cond_destroy(&race->resources->state.cond);
+    pthread_mutex_destroy(&race->resources->state.mutex);
+
+    int size = sizeof(RaceResources) + race->settings->carCount * sizeof(Car);
+    if (munmap(race->resources, size) == -1) {
+        perror("Unmap memory failed");
+    }
+
+    char name[20];
+    snprintf(name, sizeof(name), "race-shm-%d", getpid());
+    if (shm_unlink(name) == -1) {
+        perror("Unlink shared memory failed");
+    }
+}
+
+static int InitCars(Race* race) {
     RaceResources* res = race->resources;
     Point pos = race->track->grid.pos;
     Cell* start = &race->track->map[pos.y][pos.x];
+    race->initCarCount = 0;
 
     for (int i = 0; i < race->carCount; ++i) {
         const char* driver = race->settings->startOrder[i];
@@ -33,7 +52,7 @@ static void InitCars(Race* race) {
 
         if (!teamCfg) {
             dprintf(2, "Driver %s has no team\n", driver);
-            exit(1);
+            return 1;
         }
 
         Team team = (Team){.color = teamCfg->color, .name = (char*) teamCfg->name};
@@ -42,31 +61,38 @@ static void InitCars(Race* race) {
         start = start->road.back;
         if (!start || !TryTakeCell(start, car)) {
             dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
-            exit(1);
+            return 1;
         }
 
         InitCar(&res->cars[i], (char*) driver, team, start);
+        ++race->initCarCount;
     }
+    return 0;
 }
 
 static void ResetStats(Race* race) {
     race->stats.duration = 0.0;
+    race->stats.status = "Completed successfully";
+    race->stats.winner = NULL;
 }
 
-static RaceResources* NewRaceResources(const RaceSettings* settings) {
-    int fd = shm_open("race-shared-memory", O_RDWR | O_CREAT, 0666);
+static RaceResources* NewRaceResources(Race* race) {
+    char buf[20];
+    snprintf(buf, sizeof(buf), "race-shm-%d", getpid());
+
+    int fd = shm_open(buf, O_RDWR | O_CREAT, 0666);
     if (fd == -1) {
-        perror("race: shared memory open failed");
+        perror("Shared memory open failed");
         exit(1);
     }
 
-    size_t size = sizeof(RaceResources) + settings->carCount * sizeof(Car);
+    size_t size = sizeof(RaceResources) + race->settings->carCount * sizeof(Car);
     if (ftruncate(fd, size) == -1) {
         perror("Truncate file failed");
         if (close(fd) == -1) {
             perror("Close fd error");
         }
-        if (shm_unlink("race-shared-memory") == -1) {
+        if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
         exit(1);
@@ -78,7 +104,7 @@ static RaceResources* NewRaceResources(const RaceSettings* settings) {
         if (close(fd) == -1) {
             perror("Close fd error");
         }
-        if (shm_unlink("race-shared-memory") == -1) {
+        if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
         exit(1);
@@ -87,50 +113,52 @@ static RaceResources* NewRaceResources(const RaceSettings* settings) {
     if (close(fd) == -1) {
         perror("Close fd error");
     }
-    return res;
-}
-
-void InitRace(Race* race, const RaceSettings* settings) {
-    race->resources = NewRaceResources(settings);
-    race->track = LoadTrack(settings->mapFile);
-
-    race->settings = settings;
-    race->carCount = settings->carCount;
-    race->resources->cars = (Car*) (race->resources + 1);
-    race->resources->state.isOver = 0;
-    race->resources->state.isInterrupted = false;
 
     pthread_condattr_t condAttr;
     pthread_condattr_init(&condAttr);
     pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC);
     pthread_condattr_setpshared(&condAttr, PTHREAD_PROCESS_SHARED);
-    pthread_cond_init(&race->resources->state.cond, &condAttr);
+    pthread_cond_init(&res->state.cond, &condAttr);
     pthread_condattr_destroy(&condAttr);
 
     pthread_mutexattr_t mutexAttr;
     pthread_mutexattr_init(&mutexAttr);
     pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&race->resources->state.mutex, &mutexAttr);
+    pthread_mutex_init(&res->state.mutex, &mutexAttr);
     pthread_mutexattr_destroy(&mutexAttr);
-
-    ResetStats(race);
-    InitCars(race);
-    InitJudge(&race->judge, race->resources->cars, race->carCount, &race->settings->rules);
+    return res;
 }
 
-static void DestroyRace(Race* race) {
-    for (int i = 0; i < race->carCount; ++i) {
+int InitRace(Race* race, const RaceSettings* settings) {
+    race->settings = settings;
+    race->carCount = settings->carCount;
+    ResetStats(race);
+
+    race->resources = NewRaceResources(race);
+    race->resources->cars = (Car*) (race->resources + 1);
+    race->resources->state.isOver = 0;
+    race->resources->state.isInterrupted = false;
+
+    race->track = LoadTrack(settings->mapFile);
+    if (!race->track) {
+        DestroyRaceResources(race);
+        return 1;
+    }
+
+    if (InitCars(race)) {
+        DestroyRace(race);
+        return 1;
+    }
+    InitJudge(&race->judge, race->resources->cars, race->carCount, &race->settings->rules);
+    return 0;
+}
+
+void DestroyRace(Race* race) {
+    for (int i = 0; i < race->initCarCount; ++i) {
         DestroyCar(&race->resources->cars[i]);
     }
     DestroyTrack(race->track);
-
-    int size = sizeof(RaceResources) + race->settings->carCount * sizeof(Car);
-    if (munmap(race->resources, size) == -1) {
-        perror("Unmap memory failed");
-    }
-    if (shm_unlink("race-shared-memory") == -1) {
-        perror("Unlink shared memory failed");
-    }
+    DestroyRaceResources(race);
 }
 
 static void ClearScreen() {
@@ -236,33 +264,69 @@ static void* RunCar(Car* car, RaceState* state) {
     return NULL;
 }
 
+static bool StartRace(Race* race) {
+    RaceResources* res = race->resources;
+
+    for (int i = 0; i < race->carCount; ++i) {
+        pid_t pid = fork();
+        if (pid == -1) {
+            perror("Fork car failed");
+            return false;
+        } else if (pid == 0) {
+            RunCar(&res->cars[i], &res->state);
+            exit(0);
+        }
+    }
+    return true;
+}
+
+static void StopRace(Race* race) {
+    RaceState* state = &race->resources->state;
+    pthread_mutex_lock(&state->mutex);
+    state->isOver = true;
+    pthread_cond_broadcast(&state->cond);
+    pthread_mutex_unlock(&state->mutex);
+
+    for (int i = 0; i < race->carCount; ++i) {
+        pid_t pid;
+        do {
+            pid = wait(NULL);
+        } while (pid == -1 && errno == EINTR);
+
+        if (pid == -1) {
+            if (errno == ECHILD) {
+                break;
+            }
+            perror("Wait child process failed");
+        }
+    }
+}
+
 void TerminateRace(Race* race) {
     race->resources->state.isInterrupted = true;
 }
 
-void RunRace(Race* race) {
+int RunRace(Race* race) {
+    int rc = 0;
     RaceResources* res = race->resources;
     RaceState* state = &res->state;
+
+    DrawRaceStart(race);
+    if (state->isInterrupted) {
+        dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
+        race->stats.status = "Interrupted by user";
+        goto finish;
+    }
 
     ResetStats(race);
     struct timespec startTime, endTime;
     clock_gettime(CLOCK_MONOTONIC, &startTime);
 
-    DrawRaceStart(race);
-    if (state->isInterrupted) {
-        dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
-        return;
-    }
-
-    for (int i = 0; i < race->carCount; ++i) {
-        pid_t pid = fork();
-        if (pid == -1) {
-            perror("fork car failed");
-            exit(1);
-        } else if (pid == 0) {
-            RunCar(&res->cars[i], state);
-            exit(0);
-        }
+    if (!StartRace(race)) {
+        StopRace(race);
+        race->stats.status = "Failed to start";
+        rc = 1;
+        goto finish;
     }
 
     while (!IsRaceOver(&race->judge) && !state->isInterrupted) {
@@ -270,59 +334,44 @@ void RunRace(Race* race) {
         usleep(race->settings->delayMs * 1000);
     }
 
-    pthread_mutex_lock(&state->mutex);
-    state->isOver = true;
-    pthread_cond_broadcast(&state->cond);
-    pthread_mutex_unlock(&state->mutex);
-
+    StopRace(race);
     DrawRace(race);
+
     if (IsRaceOver(&race->judge)) {
-        AnnounceWinner(&race->judge, 1);
-    } else {
+        Car* winner = race->judge.leaderBoard[0];
+        dprintf(1, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
+        race->stats.winner = winner->driverName;
+    } else if (state->isInterrupted) {
         dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
+        race->stats.status = "Interrupted by user";
+    } else {
+        dprintf(2, "Internal error");
+        race->stats.status = "Internal error";
+        rc = 1;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &endTime);
     race->stats.duration =
         (double) (endTime.tv_sec - startTime.tv_sec) + (double) (endTime.tv_nsec - startTime.tv_nsec) / 1e9;
 
+finish:
     SaveRaceLog(race);
-    DestroyRace(race);
+    return rc;
 }
 
 void SaveRaceLog(Race* race) {
-    time_t now = time(NULL);
-    struct tm* localTime = localtime(&now);
-
-    int fd;
-    if (strlen(race->settings->logFile) == 0) {
-        char fileName[250];
-        strftime(fileName, sizeof(fileName), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localTime);
-        fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        dprintf(1, "Race report log successfully saved to: %s\n", fileName);
-    } else {
-        fd = open(race->settings->logFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        dprintf(1, "Race report log successfully saved to: %s\n", race->settings->logFile);
-    }
-
-    if (fd < 0) {
-        perror("failed to open log file");
+    int fd = open(race->settings->logFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) {
+        perror("Open log file failed");
         return;
     }
-
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%d-%m-%Y %H:%M:%S", localTime);
-
-    const char* status =
-        race->resources->state.isInterrupted ? "Interrupted by user (SIGINT)" : "Completed successfully";
-    const char* winner = race->resources->state.isInterrupted ? "None" : race->judge.leaderBoard[0]->driverName;
+    dprintf(1, "Race report log successfully saved to: %s\n", race->settings->logFile);
 
     dprintf(fd, "==================================================\n");
     dprintf(fd, "              RACE SIMULATION REPORT              \n");
     dprintf(fd, "==================================================\n");
-    dprintf(fd, "Timestamp          : %s\n", timestamp);
-    dprintf(fd, "Status             : %s\n", status);
-    dprintf(fd, "Winner             : %s\n", winner);
+    dprintf(fd, "Status             : %s\n", race->stats.status);
+    dprintf(fd, "Winner             : %s\n", race->stats.winner ? race->stats.winner : "None");
     dprintf(fd, "Duration           : %.2f s\n", race->stats.duration);
     dprintf(fd, "Participants       : %d\n", race->carCount);
     dprintf(fd, "\n");
@@ -339,5 +388,8 @@ void SaveRaceLog(Race* race) {
                 car->laps, car->cell->road.lane, car->cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
         pthread_mutex_unlock(&car->mutex);
     }
-    close(fd);
+
+    if (close(fd) == -1) {
+        perror("Close fd failed");
+    }
 }

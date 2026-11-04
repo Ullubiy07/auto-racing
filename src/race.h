@@ -46,6 +46,8 @@ typedef struct {
 
 typedef struct {
     double duration;
+    char* status;
+    char* winner;
 } RaceStats;
 
 typedef struct {
@@ -60,15 +62,18 @@ typedef struct {
     Judge judge;                   // Судья, контролирующий гонку
 
     int carCount;              // Количество участвующих машин
+    int initCarCount;   // Количество инициализованных машин
     RaceStats stats;           // Статистика для сохранения лога
     RaceResources* resources;  // Ресурсы в разделяемой памяти
 } Race;
 
 // Инициализировать гонку
-void InitRace(Race* race, const RaceSettings* settings);
+int InitRace(Race* race, const RaceSettings* settings);
 
 // Запустить гонку
-void RunRace(Race* race);
+int RunRace(Race* race);
+
+void DestroyRace(Race* race);
 
 void TerminateRace(Race* race);
 

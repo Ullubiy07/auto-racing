@@ -34,7 +34,4 @@ bool IsRaceOver(const Judge* judge);
 // Вывести таблицу лидеров на экран
 void DrawLeaderBoard(Judge* judge, int fd);
 
-// Объявить победителя гонки
-void AnnounceWinner(const Judge* judge, int fd);
-
 #endif

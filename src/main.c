@@ -14,14 +14,18 @@ void RaceSignalHandler(int sig) {
 
 int main(int argc, char* argv[]) {
     srand(time(NULL));
-    signal(SIGINT, RaceSignalHandler);
 
     RaceSettings settings;
     if (!ParseCLIArgs(&settings, argc, argv)) {
         return 1;
     }
+    if (InitRace(&race, &settings)) {
+        return 1;
+    }
 
-    InitRace(&race, &settings);
-    RunRace(&race);
-    return 0;
+    signal(SIGINT, RaceSignalHandler);
+    int rc = RunRace(&race);
+    signal(SIGINT, SIG_IGN);
+    DestroyRace(&race);
+    return rc;
 }

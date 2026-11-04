@@ -219,12 +219,15 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
         {"team", required_argument, NULL, 't'}, {"start", required_argument, NULL, 's'},
         {"laps", required_argument, NULL, 'l'}, {"delay", required_argument, NULL, 'd'},
         {"map", required_argument, NULL, 'm'},  {"help", no_argument, NULL, 'h'},
-        {"output", no_argument, NULL, 'o'},     {NULL, 0, NULL, 0}};
+        {"output", required_argument, NULL, 'o'},     {NULL, 0, NULL, 0}};
     int opt;
 
     memset(settings, 0, sizeof(RaceSettings));
     settings->rules.maxLaps = 1;
     settings->delayMs = 50;
+
+    time_t now = time(NULL);
+    strftime(settings->logFile, sizeof(settings->logFile), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localtime(&now));
 
     while ((opt = getopt_long(argc, argv, "t:s:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
