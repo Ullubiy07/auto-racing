@@ -18,7 +18,11 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     car->hasPassedStart = false;
     car->isOut = false;
 
-    pthread_mutex_init(&car->mutex, NULL);
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    pthread_mutex_init(&car->mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 }
 
 static const Cell* GetNextCell(const Cell* cell, MoveType type) {

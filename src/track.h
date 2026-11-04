@@ -17,13 +17,15 @@ typedef struct {
 
 // Структура, описывающая гоночную трассу
 typedef struct {
-    Cell map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Карта
-    Grid grid;                                // Стартовая решетка
-    int height;                               // Высота карты
-    int width;                                // Ширина карты
+    Cell** map;  // Карта
+    Grid grid;   // Стартовая решетка
+    int height;  // Высота карты
+    int width;   // Ширина карты
 } Track;
 
 // Загрузить трассу из файла
-void LoadTrack(Track* track, const char* fileName);
+Track* LoadTrack(const char* fileName);
+
+void CleanupTrack(Track* track);
 
 #endif

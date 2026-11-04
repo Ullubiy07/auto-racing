@@ -41,26 +41,30 @@ typedef struct {
     atomic_bool isInterrupted;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-} RaceContext;
+} RaceState;
 
 typedef struct {
     double duration;
 } RaceStats;
 
+typedef struct {
+    Car* cars;        // Машины, участвующие в гонке
+    RaceState state;  // Состояние гонки
+} RaceResources;
+
 // Состояние гонки
 typedef struct {
+    const RaceSettings* settings;  // Настройки для инитиализации гонки
     Track* track;                  // Гоночная трасса
-    const RaceSettings* settings;  // Настройки гонки
     Judge judge;                   // Судья, контролирующий гонку
-    Car cars[MAX_CARS];            // Машины, участвующие в гонке
-    int carCount;                  // Количество машин
 
-    RaceStats stats;
-    RaceContext ctx;
+    int carCount;              // Количество участвующих машин
+    RaceStats stats;           // Статистика для сохранения лога
+    RaceResources* resources;  // Ресурсы в разделяемой памяти
 } Race;
 
 // Инициализировать гонку
-void InitRace(Race* race, Track* track, const RaceSettings* settings);
+void InitRace(Race* race, const RaceSettings* settings);
 
 // Запустить гонку
 void RunRace(Race* race);

@@ -1,4 +1,3 @@
-#include <time.h>
 #include <stdlib.h>
 #include <signal.h>
 
@@ -17,16 +16,12 @@ int main(int argc, char* argv[]) {
     srand(time(NULL));
     signal(SIGINT, RaceSignalHandler);
 
-    Track track;
     RaceSettings settings;
-
     if (!ParseCLIArgs(&settings, argc, argv)) {
         return 1;
     }
 
-    LoadTrack(&track, settings.mapFile);
-    InitRace(&race, &track, &settings);
+    InitRace(&race, &settings);
     RunRace(&race);
-    SaveRaceLog(&race);
     return 0;
 }

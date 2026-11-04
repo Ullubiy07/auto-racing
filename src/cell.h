@@ -6,7 +6,7 @@
 
 // Перечисление, описывающее тип клеток схемы трассы
 typedef enum {
-    LAYOUT_EMPTY,    // Фон, пустота, исключительно для отрисовки
+    LAYOUT_EMPTY,    // Пустая клетка
     LAYOUT_UNKNOWN,  // Неизвестная клетка
 
     // Стены
@@ -18,7 +18,7 @@ typedef enum {
     LAYOUT_WALL_BOT_RIGHT,  // Нижний правый уголок
 
     // Дороги
-    LAYOUT_ROAD,         // Дорога
+    LAYOUT_ROAD,         // Обычная прямая дорога
     LAYOUT_START_RIGHT,  // Старт вправо
     LAYOUT_START_LEFT,   // Старт влево
     LAYOUT_START_UP,     // Старт вверх

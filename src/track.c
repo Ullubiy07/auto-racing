@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "track.h"
@@ -196,57 +197,131 @@ static size_t LoadFile(const char* fileName, char* buf, size_t bufSize) {
     int fd = open(fileName, O_RDONLY);
     if (fd == -1) {
         perror("Open file error");
-        exit(2);
+        exit(1);
     }
     int count = read(fd, buf, bufSize);
     if (count == -1) {
         perror("Read file error");
         close(fd);
-        exit(2);
+        exit(1);
     }
-    close(fd);
+    if (close(fd) == -1) {
+        perror("Close fd error");
+    }
     return count;
 }
 
-void LoadTrack(Track* track, const char* fileName) {
+static Track* NewTrack(int width, int height) {
+    int fd = shm_open("track-shared-memory", O_RDWR | O_CREAT, 0666);
+    if (fd == -1) {
+        perror("Shared memory open failed");
+        exit(1);
+    }
+
+    size_t size = sizeof(Track) + height * sizeof(Cell*) + width * height * sizeof(Cell);
+    if (ftruncate(fd, size) == -1) {
+        perror("Truncate file failed");
+        if (close(fd) == -1) {
+            perror("Close fd error");
+        }
+        if (shm_unlink("track-shared-memory") == -1) {
+            perror("Unlink shared memory failed");
+        }
+        exit(1);
+    }
+
+    Track* track = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (track == MAP_FAILED) {
+        perror("Memory map failed");
+        if (close(fd) == -1) {
+            perror("Close fd error");
+        }
+        if (shm_unlink("track-shared-memory") == -1) {
+            perror("Unlink shared memory failed");
+        }
+        exit(1);
+    }
+
+    if (close(fd) == -1) {
+        perror("Close fd error");
+    }
+
+    track->map = (Cell**) (track + 1);
+    track->width = width;
+    track->height = height;
+
+    Cell* cells = (Cell*) (track->map + height);
+    for (int i = 0; i < height; ++i) {
+        track->map[i] = cells + i * width;
+    }
+    return track;
+}
+
+void CleanupTrack(Track* track) {
+    size_t size = sizeof(Track) + track->height * sizeof(Cell*) + track->width * track->height * sizeof(Cell);
+    if (munmap(track, size) == -1) {
+        perror("Unmap memory failed");
+    }
+    if (shm_unlink("track-shared-memory") == -1) {
+        perror("Unlink shared memory failed");
+    }
+}
+
+Track* LoadTrack(const char* fileName) {
+    Track* track;
     const size_t bufSize = MAX_MAP_HEIGHT * MAX_MAP_WIDTH;
     char buf[bufSize];
     int count = LoadFile(fileName, buf, bufSize);
 
-    track->width = 0;
-    track->height = 0;
-    track->grid.laneCount = 0;
+    int width = 0, col = 0, row = 0;
+    int newlineCount = 0;
 
-    for (int i = 0, x = 0; i < count; ++i) {
+    // Обработка и валидация входных параметров, очистка буфера от '\n'
+    for (int i = 0; i < count; ++i) {
         if (buf[i] == '\n') {
-            if (track->height == 0) {
-                track->width = x;
+            if (row == 0) {
+                width = col;
             }
-            ++track->height;
-            x = 0;
+            ++row;
+            ++newlineCount;
+            col = 0;
         } else {
+            buf[i - newlineCount] = buf[i];
+
             CellType type = GetCellType(buf[i]);
             if (type == LAYOUT_UNKNOWN) {
                 dprintf(2, "Unknown cell type: '%c'\n", buf[i]);
-                exit(2);
+                exit(1);
             }
+
+            if (row >= MAX_MAP_HEIGHT || col >= MAX_MAP_WIDTH) {
+                dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
+                exit(1);
+            }
+            ++col;
+        }
+    }
+
+    // Заполнение структуры трассы на основе обработанных данных
+    track = NewTrack(width, row);
+    track->grid.laneCount = 0;
+
+    for (int y = 0, i = 0; y < track->height; ++y) {
+        for (int x = 0; x < track->width; ++x, ++i) {
+            CellType type = GetCellType(buf[i]);
+
             if (IsCellStart(type)) {
                 ++track->grid.laneCount;
                 if (isupper(buf[i])) {
-                    track->grid.pos = (Point){x, track->height};
+                    track->grid.pos = (Point){x, y};
                     track->grid.dir = GetCellDirection(type);
                 }
             }
-            if (track->height >= MAX_MAP_HEIGHT || x >= MAX_MAP_WIDTH) {
-                dprintf(2, "Track map exceeds size limits (max %dx%d)\n", MAX_MAP_WIDTH, MAX_MAP_HEIGHT);
-                exit(2);
-            }
-
-            InitCell(&track->map[track->height][x], x, track->height, type);
-            ++x;
+            InitCell(&track->map[y][x], x, y, type);
         }
     }
 
     CalcDistances(track);
     BuildRoadGraph(track);
+    return track;
 }

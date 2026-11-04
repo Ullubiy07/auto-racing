@@ -83,7 +83,11 @@ void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
 
-    pthread_mutex_init(&cell->mutex, NULL);
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    pthread_mutex_init(&cell->mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 }
 
 bool TryTakeCell(Cell* cell, Entity e) {

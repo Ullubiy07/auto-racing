@@ -3,9 +3,6 @@
 
 #include "cell.h"
 
-#include <pthread.h>
-#include <stddef.h>
-
 // Команда, в которой состоят машины
 typedef struct Team {
     char* name;
@@ -33,7 +30,6 @@ typedef struct Car {
     bool isOut;           // Сошла ли машина с дистанции
 
     pthread_mutex_t mutex;
-    pthread_t thread;
 } Car;
 
 // Инициализация машины на стартовой решетке

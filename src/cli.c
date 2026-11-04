@@ -224,9 +224,9 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
         {"output", no_argument, NULL, 'o'},     {NULL, 0, NULL, 0}};
     int opt;
 
+    memset(settings, 0, sizeof(RaceSettings));
     settings->rules.maxLaps = 1;
     settings->delayMs = 50;
-    memset(settings->logFile, 0, sizeof(settings->logFile));
 
     while ((opt = getopt_long(argc, argv, "t:s:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
