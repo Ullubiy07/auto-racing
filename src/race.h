@@ -5,6 +5,7 @@
 #include "track.h"
 #include "judge.h"
 
+#include <pthread.h>
 #include <stdatomic.h>
 
 enum {

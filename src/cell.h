@@ -89,6 +89,8 @@ typedef struct cell_t {
 
 void InitCell(Cell* cell, int x, int y, CellType type);
 
+void DestroyCell(Cell* cell);
+
 bool TryTakeCell(Cell* cell, Entity e);
 
 void LeaveCell(Cell* cell);

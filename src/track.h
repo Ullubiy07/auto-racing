@@ -26,6 +26,6 @@ typedef struct {
 // Загрузить трассу из файла
 Track* LoadTrack(const char* fileName);
 
-void CleanupTrack(Track* track);
+void DestroyTrack(Track* track);
 
 #endif

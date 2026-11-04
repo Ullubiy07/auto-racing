@@ -1,11 +1,9 @@
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
 
 #include "cli.h"
-#include "race.h"
 
 enum {
     MAX_COLOR_SIZE = 10,

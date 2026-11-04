@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -257,7 +258,13 @@ static Track* NewTrack(int width, int height) {
     return track;
 }
 
-void CleanupTrack(Track* track) {
+void DestroyTrack(Track* track) {
+    for (int y = 0; y < track->height; ++y) {
+        for (int x = 0; x < track->width; ++x) {
+            DestroyCell(&track->map[y][x]);
+        }
+    }
+
     size_t size = sizeof(Track) + track->height * sizeof(Cell*) + track->width * track->height * sizeof(Cell);
     if (munmap(track, size) == -1) {
         perror("Unmap memory failed");

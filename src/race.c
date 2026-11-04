@@ -1,17 +1,11 @@
 #include <assert.h>
-#include <pthread.h>
-#include <sched.h>
-#include <stdatomic.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "car.h"
-#include "track.h"
 
 #include "race.h"
 
@@ -124,7 +118,12 @@ void InitRace(Race* race, const RaceSettings* settings) {
     InitJudge(&race->judge, race->resources->cars, race->carCount, &race->settings->rules);
 }
 
-static void CleanupRace(Race* race) {
+static void DestroyRace(Race* race) {
+    for (int i = 0; i < race->carCount; ++i) {
+        DestroyCar(&race->resources->cars[i]);
+    }
+    DestroyTrack(race->track);
+
     int size = sizeof(RaceResources) + race->settings->carCount * sizeof(Car);
     if (munmap(race->resources, size) == -1) {
         perror("Unmap memory failed");
@@ -288,8 +287,7 @@ void RunRace(Race* race) {
         (double) (endTime.tv_sec - startTime.tv_sec) + (double) (endTime.tv_nsec - startTime.tv_nsec) / 1e9;
 
     SaveRaceLog(race);
-    CleanupTrack(race->track);
-    CleanupRace(race);
+    DestroyRace(race);
 }
 
 void SaveRaceLog(Race* race) {
@@ -317,14 +315,15 @@ void SaveRaceLog(Race* race) {
 
     const char* status =
         race->resources->state.isInterrupted ? "Interrupted by user (SIGINT)" : "Completed successfully";
+    const char* winner = race->resources->state.isInterrupted ? "None" : race->judge.leaderBoard[0]->driverName;
 
     dprintf(fd, "==================================================\n");
     dprintf(fd, "              RACE SIMULATION REPORT              \n");
     dprintf(fd, "==================================================\n");
     dprintf(fd, "Timestamp          : %s\n", timestamp);
     dprintf(fd, "Status             : %s\n", status);
-    dprintf(fd, "Winner             : %s\n", race->judge.leaderBoard[0]->driverName);
-    dprintf(fd, "Total Duration     : %.2f s\n", race->stats.duration);
+    dprintf(fd, "Winner             : %s\n", winner);
+    dprintf(fd, "Duration           : %.2f s\n", race->stats.duration);
     dprintf(fd, "Participants       : %d\n", race->carCount);
     dprintf(fd, "\n");
 

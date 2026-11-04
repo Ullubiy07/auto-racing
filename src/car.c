@@ -1,20 +1,14 @@
-#include <limits.h>
-#include <pthread.h>
+#include <stdbool.h>
 #include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "car.h"
 
-void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
+void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->driverName = driverName;
     car->team = team;
     car->cell = cell;
-
     car->prevPos = (Point){-1, -1};
-
     car->laps = 0;
-
     car->hasPassedStart = false;
     car->isOut = false;
 
@@ -25,7 +19,11 @@ void InitCar(Car* car, char* driverName, Team team, const Cell* cell) {
     pthread_mutexattr_destroy(&attr);
 }
 
-static const Cell* GetNextCell(const Cell* cell, MoveType type) {
+void DestroyCar(Car* car) {
+    pthread_mutex_destroy(&car->mutex);
+}
+
+static Cell* GetNextCell(Cell* cell, MoveType type) {
     switch (type) {
     case MOVE_FORWARD:
         return cell->road.forward;
@@ -40,7 +38,7 @@ static const Cell* GetNextCell(const Cell* cell, MoveType type) {
 }
 
 static bool CanMove(Car* car, MoveType type) {
-    const Cell* newCell = GetNextCell(car->cell, type);
+    Cell* newCell = GetNextCell(car->cell, type);
     if (!newCell || (newCell->x == car->prevPos.x && newCell->y == car->prevPos.y)) {
         return false;
     }
@@ -52,19 +50,14 @@ static bool CanMove(Car* car, MoveType type) {
     return true;
 }
 
-static void MoveCarToCell(Car* car, const Cell* newCell) {
-    car->prevPos = (Point){car->cell->x, car->cell->y};
-    car->cell = newCell;
-}
-
 static bool TryMove(Car* car, MoveType type) {
     if (!CanMove(car, type)) {
         return false;
     }
 
-    const Cell* newCell = GetNextCell(car->cell, type);
+    Cell* newCell = GetNextCell(car->cell, type);
     Entity e = {.data = car, .type = ENTITY_CAR};
-    if (!TryTakeCell((Cell*) newCell, e)) {
+    if (!TryTakeCell(newCell, e)) {
         return false;
     }
 
@@ -76,8 +69,9 @@ static bool TryMove(Car* car, MoveType type) {
         car->hasPassedStart = true;
     }
 
-    LeaveCell((Cell*) car->cell);
-    MoveCarToCell(car, newCell);
+    LeaveCell(car->cell);
+    car->prevPos = (Point){car->cell->x, car->cell->y};
+    car->cell = newCell;
     return true;
 }
 
@@ -113,8 +107,8 @@ typedef struct {
 static int CompareMoves(const void* lhs, const void* rhs) {
     Move* moveA = (Move*) lhs;
     Move* moveB = (Move*) rhs;
-    const Cell* cellA = GetNextCell(moveA->car->cell, moveA->type);
-    const Cell* cellB = GetNextCell(moveB->car->cell, moveB->type);
+    Cell* cellA = GetNextCell(moveA->car->cell, moveA->type);
+    Cell* cellB = GetNextCell(moveB->car->cell, moveB->type);
     if (!cellA && !cellB) {
         return 0;
     }

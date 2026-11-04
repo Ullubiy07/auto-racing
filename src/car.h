@@ -3,6 +3,8 @@
 
 #include "cell.h"
 
+#include <pthread.h>
+
 // Команда, в которой состоят машины
 typedef struct Team {
     char* name;
@@ -20,8 +22,8 @@ typedef enum {
 // Машина, участвующая в гонке
 typedef struct Car {
     char* driverName;
-    Team team;         // Команда, в которой состоит машина
-    const Cell* cell;  // Местоположение (x, y)
+    Team team;   // Команда, в которой состоит машина
+    Cell* cell;  // Местоположение (x, y)
 
     int laps;       // Число пройденных кругов
     Point prevPos;  // Предыдущее местоположение
@@ -33,7 +35,9 @@ typedef struct Car {
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, char* driverName, Team team, const Cell* cell);
+void InitCar(Car* car, char* driverName, Team team, Cell* cell);
+
+void DestroyCar(Car* car);
 
 bool TryRandomMove(Car* car);
 

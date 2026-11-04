@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <string.h>
 
 #include "cell.h"
@@ -88,6 +87,10 @@ void InitCell(Cell* cell, int x, int y, CellType type) {
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     pthread_mutex_init(&cell->mutex, &attr);
     pthread_mutexattr_destroy(&attr);
+}
+
+void DestroyCell(Cell* cell) {
+    pthread_mutex_destroy(&cell->mutex);
 }
 
 bool TryTakeCell(Cell* cell, Entity e) {
