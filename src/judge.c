@@ -1,4 +1,5 @@
-#include <pthread.h>
+#include <errno.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,13 +43,14 @@ static void UpdateLeaderBoard(Judge* judge) {
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
         snapshots[i].car = car;
-        pthread_mutex_lock(&car->mutex);
+
+        while (sem_wait(&car->sema) && errno == EINTR);
         snapshots[i].laps = car->laps;
         snapshots[i].distToFinish = car->cell->road.distToFinish;
         snapshots[i].lane = car->cell->road.lane;
         snapshots[i].hasPassedStart = car->hasPassedStart;
         snapshots[i].isOut = car->isOut;
-        pthread_mutex_unlock(&car->mutex);
+        sem_post(&car->sema);
     }
 
     qsort(snapshots, judge->carCount, sizeof(CarSnapshot), CompareCars);
@@ -75,9 +77,9 @@ bool IsRaceOver(const Judge* judge) {
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
 
-        pthread_mutex_lock(&car->mutex);
+        while (sem_wait(&car->sema) && errno == EINTR);
         hasWinner |= (car->laps >= judge->rules->maxLaps);
-        pthread_mutex_unlock(&car->mutex);
+        sem_post(&car->sema);
     }
     return judge->activeCarCount == 0 || hasWinner;
 }
@@ -92,10 +94,10 @@ void DrawLeaderBoard(Judge* judge, int fd) {
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
 
-        pthread_mutex_lock(&car->mutex);
+        while (sem_wait(&car->sema) && errno == EINTR);
         dprintf(fd, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1,
                 car->team.color, "🏎", car->team.name, car->driverName, car->laps, car->cell->road.lane,
                 car->cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
-        pthread_mutex_unlock(&car->mutex);
+        sem_post(&car->sema);
     }
 }

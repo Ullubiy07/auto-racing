@@ -37,6 +37,7 @@ typedef struct {
     int carMaxDelayMs;
     char mapFile[250];
     char logFile[250];
+    bool mapOnly;
 } RaceSettings;
 
 typedef struct {

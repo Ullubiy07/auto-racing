@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <semaphore.h>
 #include <string.h>
 
 #include "cell.h"
@@ -82,38 +84,34 @@ void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
 
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&cell->mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
+    sem_init(&cell->sema, 1, 1);
 }
 
 void DestroyCell(Cell* cell) {
-    pthread_mutex_destroy(&cell->mutex);
+    sem_destroy(&cell->sema);
 }
 
 bool TryTakeCell(Cell* cell, Entity e) {
     bool res = false;
-    pthread_mutex_lock(&cell->mutex);
+    while (sem_wait(&cell->sema) == -1 && errno == EINTR);
     if (cell->entity.type == ENTITY_NONE) {
         cell->entity = e;
         res = true;
     }
-    pthread_mutex_unlock(&cell->mutex);
+    sem_post(&cell->sema);
     return res;
 }
 
 void LeaveCell(Cell* cell) {
-    pthread_mutex_lock(&cell->mutex);
+    while (sem_wait(&cell->sema) == -1 && errno == EINTR);
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
-    pthread_mutex_unlock(&cell->mutex);
+    sem_post(&cell->sema);
 }
 
 Entity CellEntity(Cell* cell) {
-    pthread_mutex_lock(&cell->mutex);
+    while (sem_wait(&cell->sema) == -1 && errno == EINTR);
     Entity e = cell->entity;
-    pthread_mutex_unlock(&cell->mutex);
+    sem_post(&cell->sema);
     return e;
 }

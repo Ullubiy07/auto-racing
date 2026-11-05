@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -12,15 +14,11 @@ void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->hasPassedStart = false;
     car->isOut = false;
 
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&car->mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
+    sem_init(&car->sema, 1, 1);
 }
 
 void DestroyCar(Car* car) {
-    pthread_mutex_destroy(&car->mutex);
+    sem_destroy(&car->sema);
 }
 
 static Cell* GetNextCell(Cell* cell, MoveType type) {
@@ -88,14 +86,14 @@ bool TryRandomMove(Car* car) {
     MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
     ShuffleMoves(moves, 3);
 
-    pthread_mutex_lock(&car->mutex);
+    while (sem_wait(&car->sema) && errno == EINTR);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i])) {
-            pthread_mutex_unlock(&car->mutex);
+            sem_post(&car->sema);
             return true;
         }
     }
-    pthread_mutex_unlock(&car->mutex);
+    sem_post(&car->sema);
     return false;
 }
 
@@ -127,13 +125,13 @@ bool TryBestMove(Car* car) {
 
     qsort(moves, 3, sizeof(moves[0]), CompareMoves);
 
-    pthread_mutex_lock(&car->mutex);
+    while (sem_wait(&car->sema) && errno == EINTR);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i].type)) {
-            pthread_mutex_unlock(&car->mutex);
+            sem_post(&car->sema);
             return true;
         }
     }
-    pthread_mutex_unlock(&car->mutex);
+    sem_post(&car->sema);
     return false;
 }

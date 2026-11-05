@@ -10,7 +10,7 @@ enum {
     MAX_COLOR_SIZE = 10,
 };
 
-enum Options { OPT_CAR_DELAY = 1000 };
+enum Options { OPT_CAR_DELAY = 1000, OPT_MAP_ONLY };
 
 enum Defaults {
     DEFAULT_MAX_LAPS = 1,
@@ -211,13 +211,14 @@ static void PrintHelpUsage(const char* progName) {
 
     PrintfBold("  -d, --draw-delay MS\n");
     dprintf(1, "         Set the interval between screen updates (default: %d ms)\n", DEFAULT_DRAW_DELAY);
-
     PrintfBold("      --car-delay MIN:MAX\n");
     dprintf(1, "         Set the random delay between car moves in ms (default: %d:%d)\n", DEFAULT_CAR_MIN_DELAY,
             DEFAULT_CAR_MAX_DELAY);
 
     PrintfBold("  -m, --map FILE\n");
     dprintf(1, "         Load a track map from the specified file\n");
+    PrintfBold("      --map-only\n");
+    dprintf(1, "         Draw only track map\n");
 
     PrintfBold("  -o, --output FILE\n");
     dprintf(1, "         Save the race report to the specified file\n");
@@ -270,15 +271,12 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasStartOrder = false;
     bool hasMap = false;
 
-    static struct option longOptions[] = {{"team", required_argument, NULL, 't'},
-                                          {"start", required_argument, NULL, 's'},
-                                          {"laps", required_argument, NULL, 'l'},
-                                          {"draw-delay", required_argument, NULL, 'd'},
-                                          {"map", required_argument, NULL, 'm'},
-                                          {"help", no_argument, NULL, 'h'},
-                                          {"output", required_argument, NULL, 'o'},
-                                          {"car-delay", required_argument, NULL, OPT_CAR_DELAY},
-                                          {NULL, 0, NULL, 0}};
+    static struct option longOptions[] = {
+        {"team", required_argument, NULL, 't'},        {"start", required_argument, NULL, 's'},
+        {"laps", required_argument, NULL, 'l'},        {"draw-delay", required_argument, NULL, 'd'},
+        {"map", required_argument, NULL, 'm'},         {"help", no_argument, NULL, 'h'},
+        {"output", required_argument, NULL, 'o'},      {"car-delay", required_argument, NULL, OPT_CAR_DELAY},
+        {"map-only", no_argument, NULL, OPT_MAP_ONLY}, {NULL, 0, NULL, 0}};
     int opt;
 
     memset(settings, 0, sizeof(RaceSettings));
@@ -328,6 +326,10 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
             if (!ParseCarDelay(settings)) {
                 return false;
             }
+            break;
+
+        case OPT_MAP_ONLY:
+            settings->mapOnly = true;
             break;
 
         case 'm':

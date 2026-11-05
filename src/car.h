@@ -3,7 +3,7 @@
 
 #include "cell.h"
 
-#include <pthread.h>
+#include <semaphore.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
@@ -31,7 +31,7 @@ typedef struct Car {
     bool hasPassedStart;  // Прошла ли машина линию старта
     bool isOut;           // Сошла ли машина с дистанции
 
-    pthread_mutex_t mutex;
+    sem_t sema;
 } Car;
 
 // Инициализация машины на стартовой решетке

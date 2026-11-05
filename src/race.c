@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <pthread.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,7 +187,10 @@ static void DrawRace(Race* race) {
         }
         dprintf(1, "\n");
     }
-    DrawLeaderBoard(&race->judge, 1);
+
+    if (!race->settings->mapOnly) {
+        DrawLeaderBoard(&race->judge, 1);
+    }
 }
 
 static void PaintStartLine(Race* race, int color) {
@@ -250,9 +252,9 @@ static void* RunCar(Car* car, CarArgs args) {
         int sleepTimeMs = rand_r(&seed) % (args.maxSleepTimeMs - args.minSleepTimeMs + 1) + args.minSleepTimeMs;
         TryMoveFunc(car);
 
-        pthread_mutex_lock(&car->mutex);
+        while (sem_wait(&car->sema) && errno == EINTR);
         bool finished = car->laps >= args.maxLaps;
-        pthread_mutex_unlock(&car->mutex);
+        sem_post(&car->sema);
         if (finished) {
             pthread_mutex_lock(&state->mutex);
             state->isOver = true;
@@ -405,10 +407,10 @@ void SaveRaceLog(Race* race) {
     for (int i = 0; i < race->judge.carCount; ++i) {
         Car* car = race->judge.leaderBoard[i];
 
-        pthread_mutex_lock(&car->mutex);
+        while (sem_wait(&car->sema) && errno == EINTR);
         dprintf(fd, "   %-3d | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1, car->team.name, car->driverName,
                 car->laps, car->cell->road.lane, car->cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
-        pthread_mutex_unlock(&car->mutex);
+        sem_post(&car->sema);
     }
 
     if (close(fd) == -1) {

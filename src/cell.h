@@ -1,8 +1,8 @@
 #ifndef CELL_H
 #define CELL_H
 
+#include <semaphore.h>
 #include <stdbool.h>
-#include <pthread.h>
 
 // Перечисление, описывающее тип клеток схемы трассы
 typedef enum {
@@ -84,7 +84,7 @@ typedef struct cell_t {
     Entity entity;
     Road road;
 
-    pthread_mutex_t mutex;
+    sem_t sema;
 } Cell;
 
 void InitCell(Cell* cell, int x, int y, CellType type);
