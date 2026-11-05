@@ -2,11 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "race.h"
 
 #include "cli.h"
 
 enum {
     MAX_COLOR_SIZE = 10,
+};
+
+enum Options { OPT_CAR_DELAY = 1000 };
+
+enum Defaults {
+    DEFAULT_MAX_LAPS = 1,
+    DEFAULT_DRAW_DELAY = 50,
+    DEFAULT_CAR_MIN_DELAY = 80,
+    DEFAULT_CAR_MAX_DELAY = 180
 };
 
 typedef struct {
@@ -157,18 +167,63 @@ static bool ParseLogFile(RaceSettings* settings, const char* arg) {
     return true;
 }
 
+static bool ParseCarDelay(RaceSettings* settings) {
+    char* minArg = strtok(optarg, ":");
+    char* maxArg = strtok(NULL, ":");
+    if (!minArg || !maxArg) {
+        dprintf(2, "Expected car delay as MIN:MAX");
+        return false;
+    }
+
+    int minDelay = atoi(minArg);
+    int maxDelay = atoi(maxArg);
+
+    if (minDelay < 0 || maxDelay < 0) {
+        dprintf(2, "Car delay must be non-negative");
+        return false;
+    }
+    if (minDelay > maxDelay) {
+        dprintf(2, "Car min delay must be less than or equal max delay");
+        return false;
+    }
+    settings->carMinDelayMs = minDelay;
+    settings->carMaxDelayMs = maxDelay;
+    return true;
+}
+
+static void PrintfBold(const char* text) {
+    dprintf(1, "\033[1m%s\033[0m", text);
+}
+
 static void PrintHelpUsage(const char* progName) {
     dprintf(1, "Usage: %s [OPTION]...\n", progName);
+    dprintf(1, "A console racing simulator on a grid-based circuit.\n\n");
     dprintf(1, "Options:\n");
-    dprintf(1, "  -t, --team  \"NAME:COLOR:DRIVER1,DRIVER2,...\"   Add a team with drivers\n");
-    dprintf(
-        1,
-        "  -s, --start \"DRIVER1,DRIVER2,...\"              Specify start order by driver names (default: random)\n");
-    dprintf(1, "  -l, --laps N                                   Set max laps (default: 1)\n");
-    dprintf(1, "  -d, --delay N                                  Set draw delay in ms (default: 50)\n");
-    dprintf(1, "  -m, --map FILE                                 Specify path to track map\n");
-    dprintf(1, "  -o, --output FILE                              Specify path to save race report log\n");
-    dprintf(1, "  -h, --help                                     Print help message\n");
+
+    PrintfBold("  -t, --team \"NAME:COLOR:DRIVER1,DRIVER2,...\"\n");
+    dprintf(1, "         Add a team with drivers of the same color\n");
+
+    PrintfBold("  -s, --start \"DRIVER1,DRIVER2,...\"\n");
+    dprintf(1, "         Arrange drivers on the starting grid (default: random)\n");
+
+    PrintfBold("  -l, --laps N\n");
+    dprintf(1, "         Set the number of laps to win (default: %d)\n", DEFAULT_MAX_LAPS);
+
+    PrintfBold("  -d, --draw-delay MS\n");
+    dprintf(1, "         Set the interval between screen updates (default: %d ms)\n", DEFAULT_DRAW_DELAY);
+
+    PrintfBold("      --car-delay MIN:MAX\n");
+    dprintf(1, "         Set the random delay between car moves in ms (default: %d:%d)\n", DEFAULT_CAR_MIN_DELAY,
+            DEFAULT_CAR_MAX_DELAY);
+
+    PrintfBold("  -m, --map FILE\n");
+    dprintf(1, "         Load a track map from the specified file\n");
+
+    PrintfBold("  -o, --output FILE\n");
+    dprintf(1, "         Save the race report to the specified file\n");
+
+    PrintfBold("  -h, --help\n");
+    dprintf(1, "         Print help message\n");
 }
 
 static bool MakeRandomStartOrder(RaceSettings* settings) {
@@ -215,16 +270,22 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasStartOrder = false;
     bool hasMap = false;
 
-    static struct option longOptions[] = {
-        {"team", required_argument, NULL, 't'}, {"start", required_argument, NULL, 's'},
-        {"laps", required_argument, NULL, 'l'}, {"delay", required_argument, NULL, 'd'},
-        {"map", required_argument, NULL, 'm'},  {"help", no_argument, NULL, 'h'},
-        {"output", required_argument, NULL, 'o'},     {NULL, 0, NULL, 0}};
+    static struct option longOptions[] = {{"team", required_argument, NULL, 't'},
+                                          {"start", required_argument, NULL, 's'},
+                                          {"laps", required_argument, NULL, 'l'},
+                                          {"draw-delay", required_argument, NULL, 'd'},
+                                          {"map", required_argument, NULL, 'm'},
+                                          {"help", no_argument, NULL, 'h'},
+                                          {"output", required_argument, NULL, 'o'},
+                                          {"car-delay", required_argument, NULL, OPT_CAR_DELAY},
+                                          {NULL, 0, NULL, 0}};
     int opt;
 
     memset(settings, 0, sizeof(RaceSettings));
-    settings->rules.maxLaps = 1;
-    settings->delayMs = 50;
+    settings->rules.maxLaps = DEFAULT_MAX_LAPS;
+    settings->drawDelayMs = DEFAULT_DRAW_DELAY;
+    settings->carMinDelayMs = DEFAULT_CAR_MIN_DELAY;
+    settings->carMaxDelayMs = DEFAULT_CAR_MAX_DELAY;
 
     time_t now = time(NULL);
     strftime(settings->logFile, sizeof(settings->logFile), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localtime(&now));
@@ -257,10 +318,16 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
         case 'd':
             int delay = atoi(optarg);
             if (delay <= 0) {
-                dprintf(2, "Delay must be positive");
+                dprintf(2, "Draw delay must be positive");
                 return false;
             }
-            settings->delayMs = delay;
+            settings->drawDelayMs = delay;
+            break;
+
+        case OPT_CAR_DELAY:
+            if (!ParseCarDelay(settings)) {
+                return false;
+            }
             break;
 
         case 'm':

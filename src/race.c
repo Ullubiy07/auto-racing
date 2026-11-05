@@ -224,8 +224,15 @@ static void DrawRaceStart(Race* race) {
     }
 }
 
-static void* RunCar(Car* car, RaceState* state) {
-    int baseSleepTime = 1000 * 80;
+typedef struct {
+    int minSleepTimeMs;
+    int maxSleepTimeMs;
+    int maxLaps;
+    RaceState* state;
+} CarArgs;
+
+static void* RunCar(Car* car, CarArgs args) {
+    RaceState* state = args.state;
     unsigned int seed = 0;
 
     for (int i = 0; car->driverName[i] != '\0'; ++i) {
@@ -240,17 +247,28 @@ static void* RunCar(Car* car, RaceState* state) {
             TryMoveFunc = TryRandomMove;
         }
 
-        int sleepTime = baseSleepTime + (rand_r(&seed) % 100) * 1000;
-        if (!TryMoveFunc(car)) {
-            sleepTime += (rand_r(&seed) % 50) * 1000;
+        int sleepTimeMs = rand_r(&seed) % (args.maxSleepTimeMs - args.minSleepTimeMs + 1) + args.minSleepTimeMs;
+        TryMoveFunc(car);
+
+        pthread_mutex_lock(&car->mutex);
+        bool finished = car->laps >= args.maxLaps;
+        pthread_mutex_unlock(&car->mutex);
+        if (finished) {
+            pthread_mutex_lock(&state->mutex);
+            state->isOver = true;
+            pthread_cond_broadcast(&state->cond);
+            pthread_mutex_unlock(&state->mutex);
+            break;
         }
 
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC, &ts);
-        ts.tv_nsec += sleepTime * 1000;
-        if (ts.tv_nsec >= 1000000000) {
+        ts.tv_sec += sleepTimeMs / 1000;
+        sleepTimeMs %= 1000;
+        ts.tv_nsec += sleepTimeMs * 1000000;
+        if (ts.tv_nsec >= 1000000000L) {
             ++ts.tv_sec;
-            ts.tv_nsec -= 1000000000;
+            ts.tv_nsec -= 1000000000L;
         }
 
         pthread_mutex_lock(&state->mutex);
@@ -266,6 +284,10 @@ static void* RunCar(Car* car, RaceState* state) {
 
 static bool StartRace(Race* race) {
     RaceResources* res = race->resources;
+    CarArgs args = {.minSleepTimeMs = race->settings->carMinDelayMs,
+                    .maxSleepTimeMs = race->settings->carMaxDelayMs,
+                    .maxLaps = race->settings->rules.maxLaps,
+                    .state = &race->resources->state};
 
     for (int i = 0; i < race->carCount; ++i) {
         pid_t pid = fork();
@@ -273,7 +295,7 @@ static bool StartRace(Race* race) {
             perror("Fork car failed");
             return false;
         } else if (pid == 0) {
-            RunCar(&res->cars[i], &res->state);
+            RunCar(&res->cars[i], args);
             exit(0);
         }
     }
@@ -331,7 +353,7 @@ int RunRace(Race* race) {
 
     while (!IsRaceOver(&race->judge) && !state->isInterrupted) {
         DrawRace(race);
-        usleep(race->settings->delayMs * 1000);
+        usleep(race->settings->drawDelayMs * 1000);
     }
 
     StopRace(race);

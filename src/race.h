@@ -32,7 +32,9 @@ typedef struct {
 
     JudgeRules rules;  // Правила гонки
 
-    int delayMs;
+    int drawDelayMs;
+    int carMinDelayMs;
+    int carMaxDelayMs;
     char mapFile[250];
     char logFile[250];
 } RaceSettings;
