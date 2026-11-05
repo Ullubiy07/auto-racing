@@ -84,10 +84,10 @@ typedef struct cell_t {
     Entity entity;
     Road road;
 
-    sem_t sema;
+    sem_t* sema;
 } Cell;
 
-void InitCell(Cell* cell, int x, int y, CellType type);
+int InitCell(Cell* cell, int x, int y, CellType type);
 
 void DestroyCell(Cell* cell);
 

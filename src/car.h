@@ -31,11 +31,11 @@ typedef struct Car {
     bool hasPassedStart;  // Прошла ли машина линию старта
     bool isOut;           // Сошла ли машина с дистанции
 
-    sem_t sema;
+    sem_t* sema;
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, char* driverName, Team team, Cell* cell);
+int InitCar(Car* car, char* driverName, Team team, Cell* cell);
 
 void DestroyCar(Car* car);
 

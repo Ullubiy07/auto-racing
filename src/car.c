@@ -1,11 +1,14 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <semaphore.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "car.h"
 
-void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
+int InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->driverName = driverName;
     car->team = team;
     car->cell = cell;
@@ -14,11 +17,25 @@ void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->hasPassedStart = false;
     car->isOut = false;
 
-    sem_init(&car->sema, 1, 1);
+    char name[50];
+    snprintf(name, sizeof(name), "car-%d-%s", getpid(), driverName);
+    car->sema = sem_open(name, O_CREAT, 0666, 1);
+    if (car->sema == SEM_FAILED) {
+        perror("Open semaphore failed");
+        return 1;
+    }
+    return 0;
 }
 
 void DestroyCar(Car* car) {
-    sem_destroy(&car->sema);
+    if (sem_close(car->sema)) {
+        perror("Close semaphore failed");
+    }
+    char name[50];
+    snprintf(name, sizeof(name), "car-%d-%s", getpid(), car->driverName);
+    if (sem_unlink(name)) {
+        perror("Unlink semaphore failed");
+    }
 }
 
 static Cell* GetNextCell(Cell* cell, MoveType type) {
@@ -86,14 +103,14 @@ bool TryRandomMove(Car* car) {
     MoveType moves[3] = {MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT};
     ShuffleMoves(moves, 3);
 
-    while (sem_wait(&car->sema) && errno == EINTR);
+    while (sem_wait(car->sema) && errno == EINTR);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i])) {
-            sem_post(&car->sema);
+            sem_post(car->sema);
             return true;
         }
     }
-    sem_post(&car->sema);
+    sem_post(car->sema);
     return false;
 }
 
@@ -125,13 +142,13 @@ bool TryBestMove(Car* car) {
 
     qsort(moves, 3, sizeof(moves[0]), CompareMoves);
 
-    while (sem_wait(&car->sema) && errno == EINTR);
+    while (sem_wait(car->sema) && errno == EINTR);
     for (size_t i = 0; i < 3; ++i) {
         if (TryMove(car, moves[i].type)) {
-            sem_post(&car->sema);
+            sem_post(car->sema);
             return true;
         }
     }
-    sem_post(&car->sema);
+    sem_post(car->sema);
     return false;
 }
