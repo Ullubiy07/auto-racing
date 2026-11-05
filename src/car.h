@@ -35,7 +35,7 @@ typedef struct Car {
 } Car;
 
 // Инициализация машины на стартовой решетке
-void InitCar(Car* car, char* driverName, Team team, Cell* cell);
+int InitCar(Car* car, char* driverName, Team team, Cell* cell);
 
 void DestroyCar(Car* car);
 

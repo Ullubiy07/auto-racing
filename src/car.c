@@ -1,11 +1,12 @@
 #include <errno.h>
 #include <semaphore.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "car.h"
 
-void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
+int InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->driverName = driverName;
     car->team = team;
     car->cell = cell;
@@ -14,11 +15,17 @@ void InitCar(Car* car, char* driverName, Team team, Cell* cell) {
     car->hasPassedStart = false;
     car->isOut = false;
 
-    sem_init(&car->sema, 1, 1);
+    if (sem_init(&car->sema, 1, 1)) {
+        perror("Initialize car semaphore failed");
+        return 1;
+    }
+    return 0;
 }
 
 void DestroyCar(Car* car) {
-    sem_destroy(&car->sema);
+    if (sem_destroy(&car->sema)) {
+        perror("Destroy car semaphore failed");
+    }
 }
 
 static Cell* GetNextCell(Cell* cell, MoveType type) {

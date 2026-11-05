@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <semaphore.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "cell.h"
@@ -76,7 +77,7 @@ bool IsCellDriveable(CellType type) {
     return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
 }
 
-void InitCell(Cell* cell, int x, int y, CellType type) {
+int InitCell(Cell* cell, int x, int y, CellType type) {
     cell->x = x;
     cell->y = y;
     cell->color = 37;
@@ -84,11 +85,17 @@ void InitCell(Cell* cell, int x, int y, CellType type) {
     cell->entity.data = NULL;
     cell->entity.type = ENTITY_NONE;
 
-    sem_init(&cell->sema, 1, 1);
+    if (sem_init(&cell->sema, 1, 1)) {
+        perror("Initialize cell semaphore failed");
+        return 1;
+    }
+    return 0;
 }
 
 void DestroyCell(Cell* cell) {
-    sem_destroy(&cell->sema);
+    if (sem_destroy(&cell->sema)) {
+        perror("Destroy cell semaphore failed");
+    }
 }
 
 bool TryTakeCell(Cell* cell, Entity e) {

@@ -63,7 +63,9 @@ static int InitCars(Race* race) {
             return 1;
         }
 
-        InitCar(&res->cars[i], (char*) driver, team, start);
+        if (InitCar(&res->cars[i], (char*) driver, team, start)) {
+            return 1;
+        }
         ++race->initCarCount;
     }
     return 0;
