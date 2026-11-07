@@ -2,6 +2,7 @@
 #define RACE_H
 
 #include "car.h"
+#include "common.h"
 #include "track.h"
 #include "judge.h"
 
@@ -9,9 +10,7 @@
 #include <stdatomic.h>
 
 enum {
-    MAX_TEAM_NAME_SIZE = 13,
-    MAX_DRIVER_NAME_SIZE = 13,
-    MAX_CARS_IN_TEAM = 4,
+    MAX_CARS_IN_TEAM = 4
 };
 
 typedef struct {
@@ -41,31 +40,24 @@ typedef struct {
 } RaceSettings;
 
 typedef struct {
-    atomic_bool isOver;
-    atomic_bool isInterrupted;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} RaceState;
-
-typedef struct {
     double duration;
     char* status;
     char* winner;
 } RaceStats;
 
-typedef struct {
-    Car* cars;        // Машины, участвующие в гонке
-    RaceState state;  // Состояние гонки
-} RaceResources;
-
 // Состояние гонки
 typedef struct {
     const RaceSettings* settings;  // Настройки для инитиализации гонки
     Track* track;                  // Гоночная трасса
+    CellSemaphores cellSemaphores;
+    sem_t* carSemaphores[MAX_CARS];
+    sem_t* carsReady;
+    sem_t* carsStopped;
+    int carsReadyCount;
+    
+    Car* cars;
     Judge judge;                   // Судья, контролирующий гонку
 
-    int carCount;              // Количество участвующих машин
-    int initCarCount;   // Количество инициализованных машин
     RaceStats stats;           // Статистика для сохранения лога
     RaceResources* resources;  // Ресурсы в разделяемой памяти
 } Race;

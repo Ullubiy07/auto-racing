@@ -7,7 +7,13 @@ add_executable(race
 	track.h track.c
 	cell.h cell.c
 	judge.h judge.c
-	car.h car.c
+	common.h common.c
+)
+
+add_executable(car
+    car.h car.c
+    cell.h cell.c
+	common.h common.c
 )
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")

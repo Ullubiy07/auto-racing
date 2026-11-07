@@ -1,4 +1,6 @@
+#include <asm-generic/errno-base.h>
 #include <assert.h>
+#include <semaphore.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,21 +9,12 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include "cell.h"
+#include "common.h"
+#include "judge.h"
+#include "track.h"
 
 #include "race.h"
-
-static const TeamConfig* FindTeamByDriver(const RaceSettings* settings, const char* driverName) {
-    for (int i = 0; i < settings->teamCount; ++i) {
-        const TeamConfig* team = &settings->teams[i];
-
-        for (int j = 0; j < team->driverCount; ++j) {
-            if (strcmp(team->drivers[j], driverName) == 0) {
-                return team;
-            }
-        }
-    }
-    return NULL;
-}
 
 static void DestroyRaceResources(Race* race) {
     pthread_cond_destroy(&race->resources->state.cond);
@@ -39,52 +32,20 @@ static void DestroyRaceResources(Race* race) {
     }
 }
 
-static int InitCars(Race* race) {
-    RaceResources* res = race->resources;
-    Point pos = race->track->grid.pos;
-    Cell* start = &race->track->map[pos.y][pos.x];
-    race->initCarCount = 0;
-
-    for (int i = 0; i < race->carCount; ++i) {
-        const char* driver = race->settings->startOrder[i];
-        const TeamConfig* teamCfg = FindTeamByDriver(race->settings, driver);
-
-        if (!teamCfg) {
-            dprintf(2, "Driver %s has no team\n", driver);
-            return 1;
-        }
-
-        Team team = (Team){.color = teamCfg->color, .name = (char*) teamCfg->name};
-        Entity car = {.data = &res->cars[i], .type = ENTITY_CAR};
-
-        start = start->road.back;
-        if (!start || !TryTakeCell(start, car)) {
-            dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->carCount);
-            return 1;
-        }
-
-        if (InitCar(&res->cars[i], (char*) driver, team, start)) {
-            return 1;
-        }
-        ++race->initCarCount;
-    }
-    return 0;
-}
-
 static void ResetStats(Race* race) {
     race->stats.duration = 0.0;
     race->stats.status = "Completed successfully";
     race->stats.winner = NULL;
 }
 
-static RaceResources* NewRaceResources(Race* race) {
+static int InitRaceResources(Race* race) {
     char buf[20];
     snprintf(buf, sizeof(buf), "race-shm-%d", getpid());
 
-    int fd = shm_open(buf, O_RDWR | O_CREAT, 0666);
+    int fd = shm_open(buf, O_RDWR | O_CREAT | O_EXCL, 0666);
     if (fd == -1) {
         perror("Shared memory open failed");
-        exit(1);
+        return 1;
     }
 
     size_t size = sizeof(RaceResources) + race->settings->carCount * sizeof(Car);
@@ -96,11 +57,11 @@ static RaceResources* NewRaceResources(Race* race) {
         if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
-        exit(1);
+        return 1;
     }
 
-    RaceResources* res = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (res == MAP_FAILED) {
+    race->resources = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (race->resources == MAP_FAILED) {
         perror("Memory map failed");
         if (close(fd) == -1) {
             perror("Close fd error");
@@ -108,9 +69,8 @@ static RaceResources* NewRaceResources(Race* race) {
         if (shm_unlink(buf) == -1) {
             perror("Unlink shared memory failed");
         }
-        exit(1);
+        return 1;
     }
-
     if (close(fd) == -1) {
         perror("Close fd error");
     }
@@ -119,47 +79,159 @@ static RaceResources* NewRaceResources(Race* race) {
     pthread_condattr_init(&condAttr);
     pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC);
     pthread_condattr_setpshared(&condAttr, PTHREAD_PROCESS_SHARED);
-    pthread_cond_init(&res->state.cond, &condAttr);
+    pthread_cond_init(&race->resources->state.cond, &condAttr);
     pthread_condattr_destroy(&condAttr);
 
     pthread_mutexattr_t mutexAttr;
     pthread_mutexattr_init(&mutexAttr);
     pthread_mutexattr_setpshared(&mutexAttr, PTHREAD_PROCESS_SHARED);
-    pthread_mutex_init(&res->state.mutex, &mutexAttr);
+    pthread_mutex_init(&race->resources->state.mutex, &mutexAttr);
     pthread_mutexattr_destroy(&mutexAttr);
-    return res;
+
+    race->resources->carCount = race->settings->carCount;
+    race->resources->state.isOver = 0;
+    race->resources->state.isInterrupted = false;
+    race->resources->carSettings = (CarSettings){.maxLaps = race->settings->rules.maxLaps,
+                                                 .minSleepTimeMs = race->settings->carMinDelayMs,
+                                                 .maxSleepTimeMs = race->settings->carMaxDelayMs};
+    return 0;
+}
+
+int InitCarSemaphores(Race* race) {
+    int pid = getpid();
+    char carName[30];
+    for (int i = 0; i < race->settings->carCount; ++i) {
+        snprintf(carName, sizeof(carName), "race-%d-car-%d", pid, i);
+        race->carSemaphores[i] = sem_open(carName, O_CREAT | O_EXCL, 0666, 1);
+        if (race->carSemaphores[i] == SEM_FAILED) {
+            perror("Open car semaphore failed");
+
+            for (int j = 0; j < i; ++j) {
+                if (sem_close(race->carSemaphores[j])) {
+                    perror("Close car semaphore failed");
+                }
+                snprintf(carName, sizeof(carName), "race-%d-car-%d", pid, j);
+                if (sem_unlink(carName)) {
+                    perror("Unlink car semaphore failed");
+                }
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int InitCarsReadySemaphore(Race* race) {
+    char name[30];
+    snprintf(name, sizeof(name), "race-cars-ready-%d", getpid());
+    race->carsReady = sem_open(name, O_CREAT | O_EXCL, 0666, 0);
+    if (race->carsReady == SEM_FAILED) {
+        perror("Open cars ready semaphore failed");
+        return 1;
+    }
+    return 0;
+}
+
+int InitCarsStoppedSemaphore(Race* race) {
+    char name[30];
+    snprintf(name, sizeof(name), "race-cars-stopped-%d", getpid());
+    race->carsStopped = sem_open(name, O_CREAT | O_EXCL, 0666, 0);
+    if (race->carsStopped == SEM_FAILED) {
+        perror("Open cars stopped semaphore failed");
+        return 1;
+    }
+    return 0;
+}
+
+void DestroyCarsReadySemaphore(Race* race) {
+    char name[30];
+    snprintf(name, sizeof(name), "race-cars-ready-%d", getpid());
+    if (sem_close(race->carsReady)) {
+        perror("Close cars ready semaphore failed");
+    }
+    if (sem_unlink(name)) {
+        perror("Unlink cars ready semaphore failed");
+    }
+}
+
+void DestroyCarsStoppedSemaphore(Race* race) {
+    char name[30];
+    snprintf(name, sizeof(name), "race-cars-stopped-%d", getpid());
+    if (sem_close(race->carsStopped)) {
+        perror("Close cars stopped semaphore failed");
+    }
+    if (sem_unlink(name)) {
+        perror("Unlink cars stopped semaphore failed");
+    }
+}
+
+void DestroyCarSemaphores(Race* race) {
+    char name[30];
+    for (int i = 0; i < race->settings->carCount; ++i) {
+        if (sem_close(race->carSemaphores[i])) {
+            perror("Close car semaphore failed");
+        }
+        snprintf(name, sizeof(name), "race-%d-car-%d", getpid(), i);
+        if (sem_unlink(name)) {
+            perror("Unlink car semaphore failed");
+        }
+    }
 }
 
 int InitRace(Race* race, const RaceSettings* settings) {
     race->settings = settings;
-    race->carCount = settings->carCount;
     ResetStats(race);
 
-    race->resources = NewRaceResources(race);
-    race->resources->cars = (Car*) (race->resources + 1);
-    race->resources->state.isOver = 0;
-    race->resources->state.isInterrupted = false;
+    int pid = getpid();
+    if (InitCellSemaphores(&race->cellSemaphores, pid, true)) {
+        return 1;
+    }
 
     race->track = LoadTrack(settings->mapFile);
     if (!race->track) {
-        DestroyRaceResources(race);
-        return 1;
+        goto cleanup_semaphores;
     }
 
-    if (InitCars(race)) {
-        DestroyRace(race);
-        return 1;
+    if (InitRaceResources(race)) {
+        goto cleanup_track;
     }
-    InitJudge(&race->judge, race->resources->cars, race->carCount, &race->settings->rules);
+    race->cars = (Car*) (race->resources + 1);
+
+    if (InitCarsReadySemaphore(race)) {
+        goto cleanup_resources;
+    }
+
+    if (InitCarsStoppedSemaphore(race)) {
+        goto cleanup_cars_ready;
+    }
+
+    if (InitCarSemaphores(race)) {
+        goto cleanup_cars_stopped;
+    }
     return 0;
+
+cleanup_cars_stopped:
+    DestroyCarsStoppedSemaphore(race);
+cleanup_cars_ready:
+    DestroyCarsReadySemaphore(race);
+cleanup_resources:
+    DestroyRaceResources(race);
+cleanup_track:
+    DestroyTrack(race->track);
+cleanup_semaphores:
+    CloseCellSemaphores(&race->cellSemaphores);
+    UnlinkCellSemaphores(pid);
+    return 1;
 }
 
 void DestroyRace(Race* race) {
-    for (int i = 0; i < race->initCarCount; ++i) {
-        DestroyCar(&race->resources->cars[i]);
-    }
+    CloseCellSemaphores(&race->cellSemaphores);
+    UnlinkCellSemaphores(getpid());
     DestroyTrack(race->track);
     DestroyRaceResources(race);
+    DestroyCarSemaphores(race);
+    DestroyCarsReadySemaphore(race);
+    DestroyCarsStoppedSemaphore(race);
 }
 
 static void ClearScreen() {
@@ -174,15 +246,10 @@ static void DrawRace(Race* race) {
     for (int i = 0; i < track->height; ++i) {
         for (int j = 0; j < track->width; ++j) {
             Cell* cell = &track->map[i][j];
-            Entity e = CellEntity(cell);
+            Entity e = CellEntity(cell, race->cellSemaphores.cells[cell->y][cell->x]);
 
             if (e.type == ENTITY_CAR) {
-                Car* car = e.data;
-                dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", car->team.color);
-
-                // Машина сошла с дистанции но клетка не очищена
-                assert(!(e.type == ENTITY_CAR && car->isOut));
-
+                dprintf(1, "\x1b[%d;1m🏎 \x1b[0m", race->cars[e.id].team.color);
             } else {
                 dprintf(1, "\x1b[%dm%s\x1b[0m", cell->color, GetCellInfo(cell->type)->outSymbol);
             }
@@ -228,82 +295,12 @@ static void DrawRaceStart(Race* race) {
     }
 }
 
-typedef struct {
-    int minSleepTimeMs;
-    int maxSleepTimeMs;
-    int maxLaps;
-    RaceState* state;
-} CarArgs;
-
-static void* RunCar(Car* car, CarArgs args) {
-    RaceState* state = args.state;
-    unsigned int seed = 0;
-
-    for (int i = 0; car->driverName[i] != '\0'; ++i) {
-        seed = seed * 37 + car->driverName[i];
-    }
-
-    bool (*TryMoveFunc)(Car*);
-
-    while (!state->isOver) {
-        TryMoveFunc = TryBestMove;
-        if (rand() % 2) {
-            TryMoveFunc = TryRandomMove;
-        }
-
-        int sleepTimeMs = rand_r(&seed) % (args.maxSleepTimeMs - args.minSleepTimeMs + 1) + args.minSleepTimeMs;
-        TryMoveFunc(car);
-
-        while (sem_wait(car->sema) && errno == EINTR);
-        bool finished = car->laps >= args.maxLaps;
-        sem_post(car->sema);
-        if (finished) {
-            pthread_mutex_lock(&state->mutex);
-            state->isOver = true;
-            pthread_cond_broadcast(&state->cond);
-            pthread_mutex_unlock(&state->mutex);
-            break;
-        }
-
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        ts.tv_sec += sleepTimeMs / 1000;
-        sleepTimeMs %= 1000;
-        ts.tv_nsec += sleepTimeMs * 1000000;
-        if (ts.tv_nsec >= 1000000000L) {
-            ++ts.tv_sec;
-            ts.tv_nsec -= 1000000000L;
-        }
-
-        pthread_mutex_lock(&state->mutex);
-        while (!state->isOver) {
-            if (pthread_cond_timedwait(&state->cond, &state->mutex, &ts) == ETIMEDOUT) {
-                break;
-            }
-        }
-        pthread_mutex_unlock(&state->mutex);
-    }
-    return NULL;
-}
-
-static bool StartRace(Race* race) {
-    RaceResources* res = race->resources;
-    CarArgs args = {.minSleepTimeMs = race->settings->carMinDelayMs,
-                    .maxSleepTimeMs = race->settings->carMaxDelayMs,
-                    .maxLaps = race->settings->rules.maxLaps,
-                    .state = &race->resources->state};
-
-    for (int i = 0; i < race->carCount; ++i) {
-        pid_t pid = fork();
-        if (pid == -1) {
-            perror("Fork car failed");
-            return false;
-        } else if (pid == 0) {
-            RunCar(&res->cars[i], args);
-            exit(0);
-        }
-    }
-    return true;
+static void StartRace(Race* race) {
+    RaceState* state = &race->resources->state;
+    pthread_mutex_lock(&state->mutex);
+    state->isStarted = true;
+    pthread_cond_broadcast(&state->cond);
+    pthread_mutex_unlock(&state->mutex);
 }
 
 static void StopRace(Race* race) {
@@ -313,19 +310,51 @@ static void StopRace(Race* race) {
     pthread_cond_broadcast(&state->cond);
     pthread_mutex_unlock(&state->mutex);
 
-    for (int i = 0; i < race->carCount; ++i) {
-        pid_t pid;
-        do {
-            pid = wait(NULL);
-        } while (pid == -1 && errno == EINTR);
-
-        if (pid == -1) {
-            if (errno == ECHILD) {
-                break;
-            }
-            perror("Wait child process failed");
-        }
+    for (int i = 0; i < race->carsReadyCount; ++i) {
+        while (sem_wait(race->carsStopped) && errno == EINTR);
     }
+}
+
+typedef enum { WAIT_READY, WAIT_INTERRUPTED, WAIT_ERROR } WaitResult;
+
+static WaitResult WaitForCarsReady(Race* race) {
+    for (int i = 0; i < race->settings->carCount; ++i) {
+        if (sem_wait(race->carsReady)) {
+            if (race->resources->state.isInterrupted) {
+                return WAIT_INTERRUPTED;
+            }
+            return WAIT_ERROR;
+        }
+        ++race->carsReadyCount;
+    }
+    return WAIT_READY;
+}
+
+static int PlaceCarsOnGrid(Race* race) {
+    Point pos = race->track->grid.pos;
+    Cell* start = &race->track->map[pos.y][pos.x];
+
+    for (int i = 0; i < race->settings->carCount; ++i) {
+        Entity e = {.id = i, .type = ENTITY_CAR};
+        sem_t* sema = race->carSemaphores[i];
+        pos = start->road.back;
+
+        if (pos.x < 0 || pos.x >= race->track->width || pos.y < 0 || pos.y >= race->track->height) {
+            dprintf(2, "Track capacity exceeded, max: %d, got: %d\n", i, race->settings->carCount);
+            return 1;
+        }
+
+        start = &race->track->map[pos.y][pos.x];
+        if (!TryTakeCell(start, e, race->cellSemaphores.cells[pos.y][pos.x])) {
+            dprintf(2, "Starting cell is occupied\n");
+            return 1;
+        }
+
+        while (sem_wait(sema) && errno == EINTR);
+        race->cars[i].pos = pos;
+        sem_post(sema);
+    }
+    return 0;
 }
 
 void TerminateRace(Race* race) {
@@ -337,8 +366,29 @@ int RunRace(Race* race) {
     RaceResources* res = race->resources;
     RaceState* state = &res->state;
 
+    race->judge.carCount = 0;
+    WaitResult result = WaitForCarsReady(race);
+    if (result == WAIT_INTERRUPTED) {
+        StopRace(race);
+        race->stats.status = "Interrupted by user";
+        goto finish;
+    } else if (result == WAIT_ERROR) {
+        StopRace(race);
+        return 1;
+    }
+
+    if (PlaceCarsOnGrid(race)) {
+        StopRace(race);
+        rc = 1;
+        race->stats.status = "Place cars error";
+        goto finish;
+    }
+
+    InitJudge(&race->judge, race->cars, race->carSemaphores, race->settings->carCount, race->track->map,
+              &race->settings->rules);
     DrawRaceStart(race);
     if (state->isInterrupted) {
+        StopRace(race);
         dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
         race->stats.status = "Interrupted by user";
         goto finish;
@@ -347,13 +397,7 @@ int RunRace(Race* race) {
     ResetStats(race);
     struct timespec startTime, endTime;
     clock_gettime(CLOCK_MONOTONIC, &startTime);
-
-    if (!StartRace(race)) {
-        StopRace(race);
-        race->stats.status = "Failed to start";
-        rc = 1;
-        goto finish;
-    }
+    StartRace(race);
 
     while (!IsRaceOver(&race->judge) && !state->isInterrupted) {
         DrawRace(race);
@@ -371,9 +415,7 @@ int RunRace(Race* race) {
         dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
         race->stats.status = "Interrupted by user";
     } else {
-        dprintf(2, "Internal error");
-        race->stats.status = "Internal error";
-        rc = 1;
+        return 1;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &endTime);
@@ -399,20 +441,24 @@ void SaveRaceLog(Race* race) {
     dprintf(fd, "Status             : %s\n", race->stats.status);
     dprintf(fd, "Winner             : %s\n", race->stats.winner ? race->stats.winner : "None");
     dprintf(fd, "Duration           : %.2f s\n", race->stats.duration);
-    dprintf(fd, "Participants       : %d\n", race->carCount);
-    dprintf(fd, "\n");
+    dprintf(fd, "Participants       : %d\n", race->carsReadyCount);
 
-    dprintf(fd, "=============================LEADER BOARD==============================\n");
-    dprintf(fd, " %-5s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Team", "Driver", "Laps", "Lane",
-            "Dist", "State");
+    if (race->judge.carCount > 0) {
+        dprintf(fd, "\n");
+        dprintf(fd, "=============================LEADER BOARD==============================\n");
+        dprintf(fd, " %-5s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Team", "Driver", "Laps", "Lane",
+                "Dist", "State");
+    }
 
     for (int i = 0; i < race->judge.carCount; ++i) {
         Car* car = race->judge.leaderBoard[i];
+        sem_t* sema = race->carSemaphores[car->id];
 
-        while (sem_wait(car->sema) && errno == EINTR);
+        while (sem_wait(sema) && errno == EINTR);
+        Cell* cell = &race->track->map[car->pos.y][car->pos.x];
         dprintf(fd, "   %-3d | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1, car->team.name, car->driverName,
-                car->laps, car->cell->road.lane, car->cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
-        sem_post(car->sema);
+                car->laps, cell->road.lane, cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
+        sem_post(sema);
     }
 
     if (close(fd) == -1) {

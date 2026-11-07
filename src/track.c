@@ -111,10 +111,10 @@ static void BuildRoadGraph(Track* track) {
         for (int x = 0; x < track->width; ++x) {
             track->map[y][x].road = (Road){.lane = 0,
                                            .distToFinish = track->map[y][x].road.distToFinish,
-                                           .forward = NULL,
-                                           .left = NULL,
-                                           .right = NULL,
-                                           .back = NULL};
+                                           .forward = {-1, -1},
+                                           .left = {-1, -1},
+                                           .right = {-1, -1},
+                                           .back = {-1, -1}};
         }
     }
 
@@ -147,8 +147,8 @@ static void BuildRoadGraph(Track* track) {
             Cell* newCell = &track->map[forward.y][forward.x];
 
             if (IsCellDriveable(newCell->type)) {
-                cell->road.forward = newCell;
-                newCell->road.back = cell;
+                cell->road.forward = (Point){newCell->x, newCell->y};
+                newCell->road.back = (Point){cell->x, cell->y};
 
                 if (!visited[forward.y][forward.x]) {
                     visited[forward.y][forward.x] = true;
@@ -166,7 +166,7 @@ static void BuildRoadGraph(Track* track) {
         if (IsInsideTrack(track, left)) {
             Cell* newCell = &track->map[left.y][left.x];
             if (IsCellDriveable(newCell->type)) {
-                cell->road.left = newCell;
+                cell->road.left = (Point){newCell->x, newCell->y};
 
                 if (!visited[left.y][left.x]) {
                     visited[left.y][left.x] = true;
@@ -184,7 +184,7 @@ static void BuildRoadGraph(Track* track) {
         if (IsInsideTrack(track, right)) {
             Cell* newCell = &track->map[right.y][right.x];
             if (IsCellDriveable(newCell->type)) {
-                cell->road.right = newCell;
+                cell->road.right = (Point){newCell->x, newCell->y};
 
                 if (!visited[right.y][right.x]) {
                     visited[right.y][right.x] = true;
@@ -250,7 +250,6 @@ static Track* NewTrack(int width, int height) {
         }
         return NULL;
     }
-
     if (close(fd) == -1) {
         perror("Close fd error");
     }
@@ -267,18 +266,6 @@ static Track* NewTrack(int width, int height) {
 }
 
 void DestroyTrack(Track* track) {
-    int count = 0;
-    for (int y = 0; y < track->height; ++y) {
-        for (int x = 0; x < track->width; ++x) {
-            if (count >= track->initCellCount) {
-                goto cleanup;
-            }
-            DestroyCell(&track->map[y][x]);
-            ++count;
-        }
-    }
-
-cleanup:
     size_t size = sizeof(Track) + track->height * sizeof(Cell*) + track->width * track->height * sizeof(Cell);
     if (munmap(track, size) == -1) {
         perror("Unmap memory failed");
@@ -335,7 +322,6 @@ Track* LoadTrack(const char* fileName) {
         return NULL;
     }
     track->grid.laneCount = 0;
-    track->initCellCount = 0;
 
     for (int y = 0, i = 0; y < track->height; ++y) {
         for (int x = 0; x < track->width; ++x, ++i) {
@@ -352,7 +338,6 @@ Track* LoadTrack(const char* fileName) {
                 DestroyTrack(track);
                 return NULL;
             }
-            ++track->initCellCount;
         }
     }
 

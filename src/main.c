@@ -23,9 +23,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    signal(SIGINT, RaceSignalHandler);
+    struct sigaction action = {0};
+    action.sa_handler = RaceSignalHandler;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGINT, &action, NULL);
+
     int rc = RunRace(&race);
-    signal(SIGINT, SIG_IGN);
+
+    action.sa_handler = SIG_IGN;
+    sigaction(SIGINT, &action, NULL);
+
     DestroyRace(&race);
     return rc;
 }

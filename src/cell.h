@@ -64,16 +64,16 @@ typedef enum { ENTITY_CAR, ENTITY_NONE } EntityType;
 
 typedef struct {
     EntityType type;
-    void* data;
+    int id;
 } Entity;
 
 typedef struct {
     int lane;
     int distToFinish;
-    struct cell_t* forward;
-    struct cell_t* back;
-    struct cell_t* left;
-    struct cell_t* right;
+    Point forward;
+    Point back;
+    Point left;
+    Point right;
 } Road;
 
 typedef struct cell_t {
@@ -83,18 +83,14 @@ typedef struct cell_t {
     CellType type;
     Entity entity;
     Road road;
-
-    sem_t* sema;
 } Cell;
 
 int InitCell(Cell* cell, int x, int y, CellType type);
 
-void DestroyCell(Cell* cell);
+bool TryTakeCell(Cell* cell, Entity e, sem_t* sema);
 
-bool TryTakeCell(Cell* cell, Entity e);
+void LeaveCell(Cell* cell, sem_t* sema);
 
-void LeaveCell(Cell* cell);
-
-Entity CellEntity(Cell* cell);
+Entity CellEntity(Cell* cell, sem_t* sema);
 
 #endif

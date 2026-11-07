@@ -42,15 +42,17 @@ static void UpdateLeaderBoard(Judge* judge) {
     CarSnapshot snapshots[MAX_CARS];
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
+        sem_t* sema = judge->carSemaphores[car->id];
         snapshots[i].car = car;
 
-        while (sem_wait(car->sema) && errno == EINTR);
+        while (sem_wait(sema) && errno == EINTR);
+        Cell* cell = &judge->map[car->pos.y][car->pos.x];
         snapshots[i].laps = car->laps;
-        snapshots[i].distToFinish = car->cell->road.distToFinish;
-        snapshots[i].lane = car->cell->road.lane;
+        snapshots[i].distToFinish = cell->road.distToFinish;
+        snapshots[i].lane = cell->road.lane;
         snapshots[i].hasPassedStart = car->hasPassedStart;
         snapshots[i].isOut = car->isOut;
-        sem_post(car->sema);
+        sem_post(sema);
     }
 
     qsort(snapshots, judge->carCount, sizeof(CarSnapshot), CompareCars);
@@ -60,11 +62,13 @@ static void UpdateLeaderBoard(Judge* judge) {
     }
 }
 
-void InitJudge(Judge* judge, Car* cars, int carCount, const JudgeRules* rules) {
+void InitJudge(Judge* judge, Car* cars, sem_t** carSemaphores, int carCount, Cell** map, const JudgeRules* rules) {
     judge->rules = rules;
     judge->carCount = carCount;
     judge->activeCarCount = carCount;
     judge->carsInCurrentRound = carCount;
+    judge->carSemaphores = carSemaphores;
+    judge->map = map;
 
     for (int i = 0; i < carCount; ++i) {
         judge->leaderBoard[i] = &cars[i];
@@ -76,10 +80,11 @@ bool IsRaceOver(const Judge* judge) {
     bool hasWinner = false;
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
+        sem_t* sema = judge->carSemaphores[car->id];
 
-        while (sem_wait(car->sema) && errno == EINTR);
+        while (sem_wait(sema) && errno == EINTR);
         hasWinner |= (car->laps >= judge->rules->maxLaps);
-        sem_post(car->sema);
+        sem_post(sema);
     }
     return judge->activeCarCount == 0 || hasWinner;
 }
@@ -93,11 +98,13 @@ void DrawLeaderBoard(Judge* judge, int fd) {
 
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
+        sem_t* sema = judge->carSemaphores[car->id];
 
-        while (sem_wait(car->sema) && errno == EINTR);
+        while (sem_wait(sema) && errno == EINTR);
+        Cell* cell = &judge->map[car->pos.y][car->pos.x];
         dprintf(fd, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1,
-                car->team.color, "🏎", car->team.name, car->driverName, car->laps, car->cell->road.lane,
-                car->cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
-        sem_post(car->sema);
+                car->team.color, "🏎", car->team.name, car->driverName, car->laps, cell->road.lane,
+                cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
+        sem_post(sema);
     }
 }

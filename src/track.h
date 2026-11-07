@@ -22,7 +22,6 @@ typedef struct {
     Grid grid;   // Стартовая решетка
     int height;  // Высота карты
     int width;   // Ширина карты
-    int initCellCount;
 } Track;
 
 // Загрузить трассу из файла

@@ -358,12 +358,12 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 
     if (!hasTeams) {
         ParseTeam(settings, "Red Bull:cyan:Max,Liam");
-        ParseTeam(settings, "Ferrari:red:Charles,Lewis");
-        ParseTeam(settings, "Mercedes:blue:George,Kimi");
-        ParseTeam(settings, "McLaren:yellow:Lando,Oscar");
-        ParseTeam(settings, "Aston Martin:green:Fernando,Lance");
-        ParseTeam(settings, "Alpine:purple:Pierre,Esteban");
-        ParseTeam(settings, "Williams:white:Alex,Carlos");
+        // ParseTeam(settings, "Ferrari:red:Charles,Lewis");
+        // ParseTeam(settings, "Mercedes:blue:George,Kimi");
+        // ParseTeam(settings, "McLaren:yellow:Lando,Oscar");
+        // ParseTeam(settings, "Aston Martin:green:Fernando,Lance");
+        // ParseTeam(settings, "Alpine:purple:Pierre,Esteban");
+        // ParseTeam(settings, "Williams:white:Alex,Carlos");
 
         if (!hasStartOrder) {
             MakeRandomStartOrder(settings);

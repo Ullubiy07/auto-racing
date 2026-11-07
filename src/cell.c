@@ -84,51 +84,32 @@ int InitCell(Cell* cell, int x, int y, CellType type) {
     cell->y = y;
     cell->color = 37;
     cell->type = type;
-    cell->entity.data = NULL;
+    cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
-
-    char name[20];
-    snprintf(name, sizeof(name), "cell-%d-%d-%d", getpid(), y, x);
-    cell->sema = sem_open(name, O_CREAT, 0666, 1);
-    if (cell->sema == SEM_FAILED) {
-        perror("Open semaphore failed");
-        return 1;
-    }
     return 0;
 }
 
-void DestroyCell(Cell* cell) {
-    if (sem_close(cell->sema)) {
-        perror("Close semaphore failed");
-    }
-    char name[20];
-    snprintf(name, sizeof(name), "cell-%d-%d-%d", getpid(), cell->y, cell->x);
-    if (sem_unlink(name)) {
-        perror("Unlink semaphore failed");
-    }
-}
-
-bool TryTakeCell(Cell* cell, Entity e) {
+bool TryTakeCell(Cell* cell, Entity e, sem_t* sema) {
     bool res = false;
-    while (sem_wait(cell->sema) == -1 && errno == EINTR);
+    while (sem_wait(sema) == -1 && errno == EINTR);
     if (cell->entity.type == ENTITY_NONE) {
         cell->entity = e;
         res = true;
     }
-    sem_post(cell->sema);
+    sem_post(sema);
     return res;
 }
 
-void LeaveCell(Cell* cell) {
-    while (sem_wait(cell->sema) == -1 && errno == EINTR);
-    cell->entity.data = NULL;
+void LeaveCell(Cell* cell, sem_t* sema) {
+    while (sem_wait(sema) == -1 && errno == EINTR);
+    cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
-    sem_post(cell->sema);
+    sem_post(sema);
 }
 
-Entity CellEntity(Cell* cell) {
-    while (sem_wait(cell->sema) == -1 && errno == EINTR);
+Entity CellEntity(Cell* cell, sem_t* sema) {
+    while (sem_wait(sema) == -1 && errno == EINTR);
     Entity e = cell->entity;
-    sem_post(cell->sema);
+    sem_post(sema);
     return e;
 }
