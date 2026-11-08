@@ -1,5 +1,6 @@
 #include <asm-generic/errno-base.h>
 #include <errno.h>
+#include <getopt.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -420,18 +421,139 @@ void CarSignalHandler(int sig) {
     }
 }
 
+typedef struct {
+    int id;
+    int racePid;
+    char driverName[MAX_DRIVER_NAME_SIZE];
+    Team team;
+} CarCLIArgs;
+
+static void PrintfBold(const char* text) {
+    dprintf(1, "\033[1m%s\033[0m", text);
+}
+
+static void PrintHelpUsage(const char* progName) {
+    dprintf(1, "Usage: %s [OPTION]...\n", progName);
+    dprintf(1, "Connect a car to an independently running race.\n\n");
+    dprintf(1, "Options:\n");
+
+    PrintfBold("  -i, --id N\n");
+    dprintf(1, "         Set the car ID, starting from 0 (required)\n");
+
+    PrintfBold("  -n, --driver NAME\n");
+    dprintf(1, "         Set the driver name (required, max: %d characters)\n", MAX_DRIVER_NAME_SIZE - 1);
+
+    PrintfBold("  -t, --team NAME\n");
+    dprintf(1, "         Set the team name (required, max: %d characters)\n", MAX_TEAM_NAME_SIZE - 1);
+
+    PrintfBold("  -c, --color N\n");
+    dprintf(1, "         Set the team ANSI color code, from 31 to 37 (required)\n");
+
+    PrintfBold("  -r, --race-pid PID\n");
+    dprintf(1, "         Connect to the race with this organizer PID (required)\n");
+
+    PrintfBold("  -h, --help\n");
+    dprintf(1, "         Print help message\n");
+
+    dprintf(1, "\nExample:\n");
+    dprintf(1, "  %s --id 0 --driver Ullubiy --team \"Aston Martin\" --color 33 --race-pid 28576\n", progName);
+}
+
+static bool ParseCLIArgs(CarCLIArgs* args, int argc, char* argv[]) {
+    bool hasId = false;
+    bool hasDriver = false;
+    bool hasTeam = false;
+    bool hasColor = false;
+    bool hasRacePid = false;
+
+    static struct option longOptions[] = {{"id", required_argument, NULL, 'i'},
+                                          {"driver", required_argument, NULL, 'n'},
+                                          {"team", required_argument, NULL, 't'},
+                                          {"color", required_argument, NULL, 'c'},
+                                          {"race-pid", required_argument, NULL, 'r'},
+                                          {"help", no_argument, NULL, 'h'},
+                                          {NULL, 0, NULL, 0}};
+    int opt;
+    memset(args, 0, sizeof(*args));
+
+    while ((opt = getopt_long(argc, argv, "i:n:t:c:r:h", longOptions, NULL)) != -1) {
+        switch (opt) {
+        case 'i':
+            args->id = atoi(optarg);
+            if (args->id < 0 || args->id >= MAX_CARS) {
+                dprintf(2, "Car ID must be between 0 and %d\n", MAX_CARS - 1);
+                return false;
+            }
+            hasId = true;
+            break;
+
+        case 'n':
+            if (optarg[0] == '\0' || strlen(optarg) >= sizeof(args->driverName)) {
+                dprintf(2, "Driver name must contain between 1 and %zu bytes\n", sizeof(args->driverName) - 1);
+                return false;
+            }
+            strcpy(args->driverName, optarg);
+            hasDriver = true;
+            break;
+
+        case 't':
+            if (optarg[0] == '\0' || strlen(optarg) >= sizeof(args->team.name)) {
+                dprintf(2, "Team name must contain between 1 and %zu bytes\n", sizeof(args->team.name) - 1);
+                return false;
+            }
+            strcpy(args->team.name, optarg);
+            hasTeam = true;
+            break;
+
+        case 'c':
+            args->team.color = atoi(optarg);
+            if (args->team.color < 31 || args->team.color > 37) {
+                dprintf(2, "Color must be between 31 and 37\n");
+                return false;
+            }
+            hasColor = true;
+            break;
+
+        case 'r':
+            args->racePid = atoi(optarg);
+            if (args->racePid <= 0) {
+                dprintf(2, "Race PID must be positive\n");
+                return false;
+            }
+            hasRacePid = true;
+            break;
+
+        case 'h':
+            PrintHelpUsage(argv[0]);
+            exit(0);
+
+        case '?':
+        default:
+            return false;
+        }
+    }
+
+    if (optind < argc) {
+        dprintf(2, "Unexpected argument: %s\n", argv[optind]);
+        return false;
+    }
+    if (!hasId || !hasDriver || !hasTeam || !hasColor || !hasRacePid) {
+        dprintf(2, "Specify --id, --driver, --team, --color and --race-pid\n");
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char* argv[]) {
-    int id = atoi(argv[1]);
-    char* driverName = argv[2];
-    Team team = {.color = atoi(argv[4])};
-    strcpy(team.name, argv[3]);
-
-    int racePid = atoi(argv[5]);
-
-    if (InitCarProcess(&proc, id, racePid)) {
+    CarCLIArgs args;
+    if (!ParseCLIArgs(&args, argc, argv)) {
         return 1;
     }
-    InitCar(proc.car, id, driverName, team);
+
+    if (InitCarProcess(&proc, args.id, args.racePid)) {
+        return 1;
+    }
+    InitCar(proc.car, args.id, args.driverName, args.team);
 
     struct sigaction action = {0};
     action.sa_handler = CarSignalHandler;
