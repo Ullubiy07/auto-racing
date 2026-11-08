@@ -311,9 +311,7 @@ static void StopRace(Race* race) {
     pthread_mutex_unlock(&state->mutex);
 
     for (int i = 0; i < race->carsReadyCount; ++i) {
-        if (!race->cars[i].isOut) {
-            while (sem_wait(race->carsStopped) && errno == EINTR);
-        }
+        while (sem_wait(race->carsStopped) && errno == EINTR);
     }
 }
 
