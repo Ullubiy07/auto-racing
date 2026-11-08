@@ -65,8 +65,6 @@ static void UpdateLeaderBoard(Judge* judge) {
 void InitJudge(Judge* judge, Car* cars, sem_t** carSemaphores, int carCount, Cell** map, const JudgeRules* rules) {
     judge->rules = rules;
     judge->carCount = carCount;
-    judge->activeCarCount = carCount;
-    judge->carsInCurrentRound = carCount;
     judge->carSemaphores = carSemaphores;
     judge->map = map;
 
@@ -78,6 +76,8 @@ void InitJudge(Judge* judge, Car* cars, sem_t** carSemaphores, int carCount, Cel
 
 bool IsRaceOver(const Judge* judge) {
     bool hasWinner = false;
+    int carsInRace = 0;
+    
     for (int i = 0; i < judge->carCount; ++i) {
         Car* car = judge->leaderBoard[i];
         sem_t* sema = judge->carSemaphores[car->id];
@@ -85,8 +85,18 @@ bool IsRaceOver(const Judge* judge) {
         while (sem_wait(sema) && errno == EINTR);
         hasWinner |= (car->laps >= judge->rules->maxLaps);
         sem_post(sema);
+        carsInRace += !car->isOut;
     }
-    return judge->activeCarCount == 0 || hasWinner;
+    return carsInRace == 0 || hasWinner;
+}
+
+int CountCarsInRace(const Judge* judge) {
+    int carsInRace = 0;
+    for (int i = 0; i < judge->carCount; ++i) {
+        Car* car = judge->leaderBoard[i];
+        carsInRace += !car->isOut;
+    }
+    return carsInRace;
 }
 
 void DrawLeaderBoard(Judge* judge, int fd) {

@@ -415,9 +415,14 @@ int RunRace(Race* race) {
     DrawRace(race);
 
     if (IsRaceOver(&race->judge)) {
-        Car* winner = race->judge.leaderBoard[0];
-        dprintf(1, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
-        race->stats.winner = winner->driverName;
+        if (CountCarsInRace(&race->judge) > 0) {
+            Car* winner = race->judge.leaderBoard[0];
+            dprintf(1, "\n\x1b[%d;1mWinner: %s, 🏎\x1b[0m\n", winner->team.color, winner->driverName);
+            race->stats.winner = winner->driverName;
+        } else {
+            dprintf(1, "\n\x1b[33;1m[!] No winner - all cars are out\x1b[0m\n");
+            race->stats.status = "All cars are out";
+        }
     } else if (state->isInterrupted) {
         dprintf(1, "\n\x1b[33;1m[!] The race was forcibly interrupted by the user.\x1b[0m\n");
         race->stats.status = "Interrupted by user";

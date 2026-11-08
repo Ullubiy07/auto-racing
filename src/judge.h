@@ -18,8 +18,6 @@ typedef struct {
     sem_t** carSemaphores;
     Cell** map;
     int carCount;                // Общее число машин
-    int activeCarCount;          // Количество активных машин (не сошедших)
-    int carsInCurrentRound;      // Количество активных машин на начало текущего раунда
 } Judge;
 
 // Инициализировать судью
@@ -30,5 +28,7 @@ bool IsRaceOver(const Judge* judge);
 
 // Вывести таблицу лидеров на экран
 void DrawLeaderBoard(Judge* judge, int fd);
+
+int CountCarsInRace(const Judge* judge);
 
 #endif
