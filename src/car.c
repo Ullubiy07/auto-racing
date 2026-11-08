@@ -1,7 +1,9 @@
+#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,24 +53,24 @@ static int InitCarProcess(CarProcess* proc, int id, int racePid) {
 
     proc->resources = resources;
     proc->resourcesSize = info.st_size;
-    
+
     if (id < 0 || id >= proc->resources->carCount) {
         dprintf(2, "Invalid car id\n");
         goto cleanup_resources;
     }
-    
+
     pthread_mutex_lock(&proc->resources->state.mutex);
     bool occupied = proc->resources->carRegistered[id];
     if (!occupied) {
         proc->resources->carRegistered[id] = true;
     }
     pthread_mutex_unlock(&proc->resources->state.mutex);
-    
+
     if (occupied) {
         dprintf(2, "Car id is already taken");
         goto cleanup_resources;
     }
-    
+
     proc->car = (Car*) ((char*) resources + sizeof(RaceResources) + id * sizeof(Car));
 
     char trackName[20];
@@ -322,6 +324,23 @@ static int SignalStopped(int racePid) {
     return 0;
 }
 
+static void WaitForStart(CarProcess* proc) {
+    RaceState* state = &proc->resources->state;
+    pthread_mutex_lock(&state->mutex);
+    while (!state->isStarted && !state->isOver && !proc->car->isOut) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+
+        ts.tv_nsec += 100000000L;
+        if (ts.tv_nsec >= 1000000000L) {
+            ++ts.tv_sec;
+            ts.tv_nsec -= 1000000000L;
+        }
+        pthread_cond_timedwait(&state->cond, &state->mutex, &ts);
+    }
+    pthread_mutex_unlock(&state->mutex);
+}
+
 static void* RunCar(CarProcess* proc) {
     CarSettings* settings = &proc->resources->carSettings;
     RaceState* state = &proc->resources->state;
@@ -335,15 +354,11 @@ static void* RunCar(CarProcess* proc) {
     bool (*TryMoveFunc)(CarProcess*);
 
     SignalReady(proc->racePid);
-    pthread_mutex_lock(&state->mutex);
-    while (!state->isStarted && !state->isOver) {
-        pthread_cond_wait(&state->cond, &state->mutex);
-    }
-    pthread_mutex_unlock(&state->mutex);
+    WaitForStart(proc);
 
     proc->cell = &proc->map[car->pos.y][car->pos.x];
 
-    while (!state->isOver) {
+    while (!state->isOver && !car->isOut) {
         TryMoveFunc = TryBestMove;
         if (rand() % 2) {
             TryMoveFunc = TryRandomMove;
@@ -375,14 +390,34 @@ static void* RunCar(CarProcess* proc) {
         }
 
         pthread_mutex_lock(&state->mutex);
-        while (!state->isOver) {
+        while (!state->isOver && !car->isOut) {
             if (pthread_cond_timedwait(&state->cond, &state->mutex, &ts) == ETIMEDOUT) {
                 break;
             }
         }
         pthread_mutex_unlock(&state->mutex);
     }
+
+    while (sem_wait(proc->sema) && errno == EINTR);
+    if (car->isOut) {
+        proc->cell = &proc->map[car->pos.y][car->pos.x];
+        sem_t* sema = proc->semas.cells[car->pos.y][car->pos.x];
+        Entity e = CellEntity(proc->cell, sema);
+
+        if (e.type == ENTITY_CAR && e.id == car->id) {
+            LeaveCell(proc->cell, sema);
+        }
+    }
+    sem_post(proc->sema);
     return NULL;
+}
+
+CarProcess proc;
+
+void CarSignalHandler(int sig) {
+    if (sig == SIGINT) {
+        proc.car->isOut = true;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -393,14 +428,21 @@ int main(int argc, char* argv[]) {
 
     int racePid = atoi(argv[5]);
 
-    CarProcess proc;
-
     if (InitCarProcess(&proc, id, racePid)) {
         return 1;
     }
     InitCar(proc.car, id, driverName, team);
 
+    struct sigaction action = {0};
+    action.sa_handler = CarSignalHandler;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGINT, &action, NULL);
+
     RunCar(&proc);
+
+    action.sa_handler = SIG_IGN;
+    sigaction(SIGINT, &action, NULL);
+
     DestroyCarProcess(&proc);
     SignalStopped(proc.racePid);
     return 0;

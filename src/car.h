@@ -6,6 +6,7 @@
 #include "track.h"
 
 #include <semaphore.h>
+#include <stdatomic.h>
 
 // Команда, в которой состоят машины
 typedef struct Team {
@@ -30,7 +31,7 @@ typedef struct Car {
     int laps;             // Число пройденных кругов
     Point prevPos;        // Предыдущее местоположение
     bool hasPassedStart;  // Прошла ли машина линию старта
-    bool isOut;           // Сошла ли машина с дистанции
+    atomic_bool isOut;           // Сошла ли машина с дистанции
 } Car;
 
 typedef struct {

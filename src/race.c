@@ -311,7 +311,9 @@ static void StopRace(Race* race) {
     pthread_mutex_unlock(&state->mutex);
 
     for (int i = 0; i < race->carsReadyCount; ++i) {
-        while (sem_wait(race->carsStopped) && errno == EINTR);
+        if (!race->cars[i].isOut) {
+            while (sem_wait(race->carsStopped) && errno == EINTR);
+        }
     }
 }
 
@@ -345,12 +347,17 @@ static int PlaceCarsOnGrid(Race* race) {
         }
 
         start = &race->track->map[pos.y][pos.x];
+
+        while (sem_wait(sema) && errno == EINTR);
+        if (race->cars[i].isOut) {
+            sem_post(sema);
+            continue;
+        }
         if (!TryTakeCell(start, e, race->cellSemaphores.cells[pos.y][pos.x])) {
+            sem_post(sema);
             dprintf(2, "Starting cell is occupied\n");
             return 1;
         }
-
-        while (sem_wait(sema) && errno == EINTR);
         race->cars[i].pos = pos;
         sem_post(sema);
     }
@@ -455,9 +462,17 @@ void SaveRaceLog(Race* race) {
         sem_t* sema = race->carSemaphores[car->id];
 
         while (sem_wait(sema) && errno == EINTR);
-        Cell* cell = &race->track->map[car->pos.y][car->pos.x];
-        dprintf(fd, "   %-3d | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1, car->team.name, car->driverName,
-                car->laps, cell->road.lane, cell->road.distToFinish, car->isOut ? "OUT" : "IN RACE");
+        int lane = -1;
+        int distance = -1;
+
+        if (car->pos.x >= 0 && car->pos.x < race->track->width && car->pos.y >= 0 && car->pos.y < race->track->height) {
+            Cell* cell = &race->track->map[car->pos.y][car->pos.x];
+            lane = cell->road.lane;
+            distance = cell->road.distToFinish;
+        }
+
+        dprintf(fd, "   %-3d | %-12s | %-12s | %-5d | %-5d | %-5d | %-5s\n", i + 1, car->team.name, car->driverName,
+                car->laps, lane, distance, car->isOut ? "OUT" : "IN RACE");
         sem_post(sema);
     }
 
