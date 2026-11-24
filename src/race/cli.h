@@ -3,7 +3,7 @@
 
 #include "race.h"
 
-// Парсинг аргументов командной строки в настройки гонки
+// Заполнить настройки из аргументов; false при неверном вводе.
 bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]);
 
 #endif

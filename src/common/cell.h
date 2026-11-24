@@ -4,14 +4,14 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-// Перечисление, описывающее тип клеток схемы трассы
+// Тип клетки на схеме трассы.
 typedef enum {
     LAYOUT_EMPTY,    // Пустая клетка
     LAYOUT_UNKNOWN,  // Неизвестная клетка
 
     // Стены
-    LAYOUT_WALL_HOR,        // Вертикальная
-    LAYOUT_WALL_VERT,       // Горизонтальная
+    LAYOUT_WALL_HOR,        // Горизонтальная
+    LAYOUT_WALL_VERT,       // Вертикальная
     LAYOUT_WALL_TOP_LEFT,   // Верхний левый уголок
     LAYOUT_WALL_TOP_RIGHT,  // Верхний правый уголок
     LAYOUT_WALL_BOT_LEFT,   // Нижний левый уголок
@@ -29,19 +29,25 @@ typedef enum {
     LAYOUT_TURN_DOWN     // Поворот вниз
 } CellType;
 
+// Является ли клетка поворотом.
 bool IsCellTurn(CellType type);
 
+// Принадлежит ли клетка стартовой линии.
 bool IsCellStart(CellType type);
 
+// Разрешено ли движение по клетке.
 bool IsCellDriveable(CellType type);
 
+// Тип по символу карты; LAYOUT_UNKNOWN для неизвестного символа.
 CellType GetCellType(char inputSymbol);
 
+// Координаты клетки.
 typedef struct {
     int x;
     int y;
 } Point;
 
+// Вектор движения.
 typedef struct {
     int dx;
     int dy;
@@ -50,23 +56,26 @@ typedef struct {
 // Получить направление клетки
 Direction GetCellDirection(CellType type);
 
-// Структура, описывающая информацию о клетке
+// Символы ввода и отображения клетки.
 typedef struct {
     CellType type;          // Тип клетки
-    const char* inSymbols;  // Символы, обрабатываемый на входе
+    const char* inSymbols;  // Допустимые входные символы
     const char* outSymbol;  // Символ для отображения
 } CellInfo;
 
 // Получить информацию о клетке
 const CellInfo* GetCellInfo(CellType type);
 
+// Тип содержимого клетки.
 typedef enum { ENTITY_CAR, ENTITY_NONE } EntityType;
 
+// Содержимое клетки; id = -1 для пустой клетки.
 typedef struct {
     EntityType type;
     int id;
 } Entity;
 
+// Связи дороги; отсутствующий сосед обозначается {-1, -1}.
 typedef struct {
     int lane;
     int distToFinish;
@@ -76,6 +85,7 @@ typedef struct {
     Point right;
 } Road;
 
+// Серверная клетка с мьютексом для доступа к содержимому.
 typedef struct cell_t {
     int x;
     int y;
@@ -86,14 +96,19 @@ typedef struct cell_t {
     pthread_mutex_t mutex;
 } Cell;
 
+// Заполнить клетку и создать мьютекс; 0 — успех.
 int InitCell(Cell* cell, int x, int y, CellType type);
 
+// Уничтожить мьютекс клетки.
 void DestroyCell(Cell* cell);
 
+// Занять пустую клетку; true при успехе.
 bool TryTakeCell(Cell* cell, Entity e);
 
+// Освободить клетку.
 void LeaveCell(Cell* cell);
 
+// Получить копию содержимого под мьютексом.
 Entity CellEntity(Cell* cell);
 
 #endif

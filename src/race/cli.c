@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <arpa/inet.h>
 #include "race.h"
 
 #include "cli.h"
@@ -13,6 +14,7 @@ enum {
 enum Options { OPT_CAR_DELAY = 1000, OPT_MAP_ONLY };
 
 enum Defaults {
+    DEFAULT_PORT = 8080,
     DEFAULT_MAX_LAPS = 1,
     DEFAULT_DRAW_DELAY = 50,
     DEFAULT_CAR_MIN_DELAY = 80,
@@ -79,6 +81,12 @@ static void PrintHelpUsage(const char* progName) {
     PrintfBold("  -c, --cars N\n");
     dprintf(1, "         Set the number of cars to wait for (required)\n");
 
+    PrintfBold("  -a, --ip ADDRESS\n");
+    dprintf(1, "         Set the server IPv4 bind address (default: 0.0.0.0)\n");
+
+    PrintfBold("  -p, --port PORT\n");
+    dprintf(1, "         Set the server port, from 1 to 65535 (default: %d)\n", DEFAULT_PORT);
+
     PrintfBold("  -l, --laps N\n");
     dprintf(1, "         Set the number of laps to win (default: %d)\n", DEFAULT_MAX_LAPS);
 
@@ -104,6 +112,8 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasMap = false;
 
     static struct option longOptions[] = {{"cars", required_argument, NULL, 'c'},
+                                          {"ip", required_argument, NULL, 'a'},
+                                          {"port", required_argument, NULL, 'p'},
                                           {"laps", required_argument, NULL, 'l'},
                                           {"draw-delay", required_argument, NULL, 'd'},
                                           {"map", required_argument, NULL, 'm'},
@@ -115,6 +125,8 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     int opt;
 
     memset(settings, 0, sizeof(RaceSettings));
+    strcpy(settings->ip, "0.0.0.0");
+    settings->port = DEFAULT_PORT;
     settings->rules.maxLaps = DEFAULT_MAX_LAPS;
     settings->drawDelayMs = DEFAULT_DRAW_DELAY;
     settings->carMinDelayMs = DEFAULT_CAR_MIN_DELAY;
@@ -123,8 +135,28 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     time_t now = time(NULL);
     strftime(settings->logFile, sizeof(settings->logFile), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localtime(&now));
 
-    while ((opt = getopt_long(argc, argv, "c:l:d:m:o:h", longOptions, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "c:a:p:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
+        case 'a': {
+            struct in_addr address;
+            if (inet_pton(AF_INET, optarg, &address) != 1 || strlen(optarg) >= sizeof(settings->ip)) {
+                dprintf(2, "Invalid server IPv4 address: %s\n", optarg);
+                return false;
+            }
+            strcpy(settings->ip, optarg);
+            break;
+        }
+
+        case 'p': {
+            int port = atoi(optarg);
+            if (port < 1 || port > 65535) {
+                dprintf(2, "Server port must be an integer between 1 and 65535\n");
+                return false;
+            }
+            settings->port = port;
+            break;
+        }
+
         case 'c':
             int cars = atoi(optarg);
             if (cars <= 0 || cars > MAX_CARS) {
@@ -136,8 +168,8 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
 
         case 'l':
             int laps = atoi(optarg);
-            if (laps < 0) {
-                dprintf(2, "Max laps must be non-negative");
+            if (laps <= 0) {
+                dprintf(2, "Max laps must be positive\n");
                 return false;
             }
             settings->rules.maxLaps = laps;
@@ -176,10 +208,11 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
             break;
 
         case 'h':
-        case '?':
             PrintHelpUsage(argv[0]);
             exit(0);
-            break;
+
+        case '?':
+            return false;
 
         default:
             return false;
