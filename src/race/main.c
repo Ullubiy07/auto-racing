@@ -7,7 +7,7 @@
 Race race;
 
 void RaceSignalHandler(int sig) {
-    if (sig == SIGINT) {
+    if (sig == SIGINT || sig == SIGTERM) {
         TerminateRace(&race);
     }
 }
@@ -27,11 +27,13 @@ int main(int argc, char* argv[]) {
     action.sa_handler = RaceSignalHandler;
     sigemptyset(&action.sa_mask);
     sigaction(SIGINT, &action, NULL);
+    sigaction(SIGTERM, &action, NULL);
 
     int rc = RunRace(&race);
 
     action.sa_handler = SIG_IGN;
     sigaction(SIGINT, &action, NULL);
+    sigaction(SIGTERM, &action, NULL);
 
     DestroyRace(&race);
     return rc;

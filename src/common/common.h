@@ -108,7 +108,17 @@ typedef struct {
     ClientType type;
 } ClientConnection;
 
-// Команды управления гонкой.
-typedef enum { RACE_START, RACE_STOP } RaceCommand;
+// Заголовок сообщения сервера машине; после него идут данные указанного типа.
+typedef enum {
+    RACE_START,
+    RACE_STOP,
+    RACE_REGISTRATION,  // CarRegistrationResponse
+    RACE_INIT,          // CarInitMessage
+    RACE_UPDATE         // CarMoveResponse
+} RaceCommand;
+
+// Отправить заголовок и данные; size = 0 для команд без данных.
+// Сообщения одному клиенту отправляет только один поток одновременно.
+int SendRaceMessage(int socket, RaceCommand command, const void* data, size_t size);
 
 #endif

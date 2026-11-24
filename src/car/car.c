@@ -10,13 +10,44 @@
 
 #include "car.h"
 
+static void ConnectionFailed(CarClient* client, const char* operation);
+
+// 0 — ожидаемый тип, 1 — остановка сервера, -1 — ошибка.
+static int WaitForMessage(CarClient* client, RaceCommand expected) {
+    RaceCommand command;
+    if (RecvAll(client->socket, &command, sizeof(command)) == -1) {
+        ConnectionFailed(client, "receive server message type");
+        return -1;
+    }
+
+    if (command == RACE_STOP) {
+        client->isOver = true;
+        client->isStoppedByServer = true;
+        dprintf(1, "%s: server stopped the race\n", client->car.driverName);
+        return 1;
+    }
+
+    if (command != expected) {
+        dprintf(2, "Unexpected server message type: %d\n", command);
+        client->failed = true;
+        client->isOver = true;
+        return -1;
+    }
+
+    return 0;
+}
+
 int InitCarClient(CarClient* client, const CarClientSettings* settings) {
     client->socket = -1;
     client->cell = NULL;
     client->isOver = false;
     client->failed = false;
+    client->isStoppedByServer = false;
     client->winnerId = -1;
-    client->isInterrupted = 0;
+
+    if (client->isInterrupted) {
+        return 1;
+    }
 
     InitCar(&client->car, -1, settings->driverName, settings->team);
 
@@ -25,6 +56,8 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
         perror("create tcp socket");
         return 1;
     }
+
+    client->socket = clientSocket;
 
     struct sockaddr_in server = {.sin_family = AF_INET, .sin_port = htons(settings->port)};
 
@@ -53,6 +86,15 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
         goto error;
     }
 
+    int messageResult = WaitForMessage(client, RACE_REGISTRATION);
+    if (messageResult == 1) {
+        return 0;
+    }
+
+    if (messageResult == -1) {
+        goto error;
+    }
+
     CarRegistrationResponse response;
     if (RecvAll(clientSocket, &response, sizeof(response)) == -1) {
         perror("register car");
@@ -72,6 +114,15 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
     client->car.id = response.id;
 
     dprintf(1, "Car %d (%s) registered; waiting for the track\n", client->car.id, settings->driverName);
+
+    messageResult = WaitForMessage(client, RACE_INIT);
+    if (messageResult == 1) {
+        return 0;
+    }
+
+    if (messageResult == -1) {
+        goto error;
+    }
 
     CarInitMessage msg;
     if (RecvAll(clientSocket, &msg, sizeof(msg)) == -1) {
@@ -126,6 +177,7 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
 
 error:
     close(clientSocket);
+    client->socket = -1;
     return 1;
 }
 
@@ -158,6 +210,10 @@ static void ConnectionFailed(CarClient* client, const char* operation) {
 }
 
 static bool ReceiveCarState(CarClient* client, const CarMoveRequest* request) {
+    if (WaitForMessage(client, RACE_UPDATE) != 0) {
+        return false;
+    }
+
     CarMoveResponse response;
     if (RecvAll(client->socket, &response, sizeof(response)) == -1) {
         ConnectionFailed(client, "receive car move response");
@@ -275,15 +331,7 @@ static bool TryBestMove(CarClient* client) {
 }
 
 static int WaitForStart(CarClient* client) {
-    RaceCommand command;
-    if (RecvAll(client->socket, &command, sizeof(command)) == -1) {
-        ConnectionFailed(client, "wait for race start");
-        return 1;
-    }
-
-    if (command != RACE_START) {
-        dprintf(2, "Server stopped the race before its start\n");
-        client->isOver = true;
+    if (WaitForMessage(client, RACE_START) != 0) {
         return 1;
     }
 
@@ -292,6 +340,10 @@ static int WaitForStart(CarClient* client) {
 }
 
 int RunCarClient(CarClient* client) {
+    if (client->isOver) {
+        return client->failed ? 1 : 0;
+    }
+
     if (WaitForStart(client)) {
         return client->failed ? 1 : 0;
     }
@@ -329,7 +381,7 @@ int RunCarClient(CarClient* client) {
 
     if (client->isInterrupted) {
         dprintf(1, "%s: leaving the race\n", client->car.driverName);
-    } else if (client->isOver && !client->failed) {
+    } else if (client->isOver && !client->failed && !client->isStoppedByServer) {
         dprintf(1, "%s: race finished, winner ID %d\n", client->car.driverName, client->winnerId);
     }
 

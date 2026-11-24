@@ -23,10 +23,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (InitCarClient(&client, &settings)) {
-        return 1;
-    }
-
     struct sigaction action = {0};
     action.sa_handler = CarClientSignalHandler;
     sigemptyset(&action.sa_mask);
@@ -36,11 +32,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int result = RunCarClient(&client);
+    int result = InitCarClient(&client, &settings);
+    if (result == 0) {
+        result = RunCarClient(&client);
+    }
 
     action.sa_handler = SIG_IGN;
     sigaction(SIGINT, &action, NULL);
 
     DestroyCarClient(&client);
-    return result;
+    return client.isInterrupted ? 0 : result;
 }

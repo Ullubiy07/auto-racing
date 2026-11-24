@@ -27,6 +27,7 @@ typedef struct {
 
     bool isOver;                          // Цикл клиента завершён, в том числе при ошибке
     bool failed;                          // Ошибка обмена или некорректный ответ сервера
+    bool isStoppedByServer;               // Получена штатная команда остановки
     int winnerId;                         // -1, пока победитель неизвестен
     volatile sig_atomic_t isInterrupted;  // Флаг обработчика SIGINT
 } CarClient;

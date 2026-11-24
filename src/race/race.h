@@ -63,7 +63,7 @@ typedef struct Race {
 
     RaceStats stats;  // Статистика для сохранения лога
 
-    atomic_bool isInterrupted;       // Запрошена остановка по SIGINT
+    atomic_bool isInterrupted;       // Запрошена остановка по SIGINT/SIGTERM
     atomic_bool isOver;              // Новые ходы больше не принимаются
     atomic_int activeHandlersCount;  // Ещё работающие обработчики
 

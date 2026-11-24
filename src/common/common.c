@@ -60,12 +60,12 @@ bool IsMoveAllowed(const Car* car, CellType currentType, const Road* road, Point
     return SamePosition(next, road->left) || SamePosition(next, road->right);
 }
 
-int SendAll(int socket, const void* data, size_t size) {
+static int SendBuffer(int socket, const void* data, size_t size, int flags) {
     const char* bytes = data;
     size_t sent = 0;
 
     while (sent < size) {
-        ssize_t count = send(socket, bytes + sent, size - sent, MSG_NOSIGNAL);
+        ssize_t count = send(socket, bytes + sent, size - sent, flags);
 
         if (count == -1) {
             if (errno == EINTR) {
@@ -84,6 +84,24 @@ int SendAll(int socket, const void* data, size_t size) {
     }
 
     return 0;
+}
+
+int SendAll(int socket, const void* data, size_t size) {
+    return SendBuffer(socket, data, size, MSG_NOSIGNAL);
+}
+
+int SendRaceMessage(int socket, RaceCommand command, const void* data, size_t size) {
+    // Заголовок с данными отправляются вместе, без задержки маленького TCP-пакета.
+    int flags = MSG_NOSIGNAL;
+    if (size > 0) {
+        flags |= MSG_MORE;
+    }
+
+    if (SendBuffer(socket, &command, sizeof(command), flags) == -1) {
+        return -1;
+    }
+
+    return SendAll(socket, data, size);
 }
 
 int RecvAll(int socket, void* data, size_t size) {

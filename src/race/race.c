@@ -245,13 +245,20 @@ static void RegisterCar(Race* race, int socket) {
     }
 
     bool accepted = ValidRegistration(&registration);
-    if (race->isInterrupted || race->isOver || race->connectedCarsCount >= race->settings->carCount) {
+    if (race->isInterrupted || race->isOver) {
+        SendRaceMessage(socket, RACE_STOP, NULL, 0);
+        shutdown(socket, SHUT_WR);
+        close(socket);
+        return;
+    }
+
+    if (race->connectedCarsCount >= race->settings->carCount) {
         accepted = false;
     }
 
     CarRegistrationResponse response = {.accepted = accepted, .id = accepted ? race->connectedCarsCount : -1};
 
-    if (SendAll(socket, &response, sizeof(response)) == -1) {
+    if (SendRaceMessage(socket, RACE_REGISTRATION, &response, sizeof(response)) == -1) {
         close(socket);
         return;
     }
@@ -404,7 +411,7 @@ static int PlaceCarsOnGrid(Race* race) {
 
     for (int i = 0; i < race->settings->carCount; ++i) {
         message.pos = race->cars[i].pos;
-        if (SendAll(race->clients[i].socket, &message, sizeof(message)) == -1) {
+        if (SendRaceMessage(race->clients[i].socket, RACE_INIT, &message, sizeof(message)) == -1) {
             perror("send car initialization");
             return 1;
         }
@@ -527,13 +534,18 @@ static void* CarHandler(void* arg) {
     bool started = race->isStarted;
     pthread_mutex_unlock(&race->mutex);
 
+    CarMoveRequest request;
+    size_t received = 0;
+
     while (started && !race->isInterrupted) {
         pthread_mutex_lock(&race->mutex);
         CarMoveResponse response = CarResponse(race, id, false);
         pthread_mutex_unlock(&race->mutex);
 
         if (response.raceOver) {
-            SendAll(socket, &response, sizeof(response));
+            if (!race->isInterrupted) {
+                SendRaceMessage(socket, RACE_UPDATE, &response, sizeof(response));
+            }
             break;
         }
 
@@ -553,11 +565,23 @@ static void* CarHandler(void* arg) {
             continue;
         }
 
-        CarMoveRequest request;
-        if (RecvAll(socket, &request, sizeof(request)) == -1) {
+        // Частичный запрос не мешает обработчику заметить остановку гонки.
+        ssize_t count = recv(socket, (char*) &request + received, sizeof(request) - received, MSG_DONTWAIT);
+        if (count == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+            continue;
+        }
+
+        if (count <= 0) {
             MarkCarOut(race, id);
             break;
         }
+
+        received += (size_t) count;
+        if (received < sizeof(request)) {
+            continue;
+        }
+
+        received = 0;
 
         // Проверка хода и формирование ответа используют одно состояние гонки.
         pthread_mutex_lock(&race->mutex);
@@ -572,7 +596,11 @@ static void* CarHandler(void* arg) {
 
         pthread_mutex_unlock(&race->mutex);
 
-        if (SendAll(socket, &response, sizeof(response)) == -1) {
+        if (race->isInterrupted) {
+            break;
+        }
+
+        if (SendRaceMessage(socket, RACE_UPDATE, &response, sizeof(response)) == -1) {
             MarkCarOut(race, id);
             break;
         }
@@ -608,9 +636,8 @@ static int StartRace(Race* race) {
         ++race->startedHandlersCount;
     }
 
-    RaceCommand command = RACE_START;
     for (int i = 0; i < race->settings->carCount; ++i) {
-        if (SendAll(race->clients[i].socket, &command, sizeof(command)) == -1) {
+        if (SendRaceMessage(race->clients[i].socket, RACE_START, NULL, 0) == -1) {
             perror("send race start command");
             return 1;
         }
@@ -625,6 +652,63 @@ static int StartRace(Race* race) {
 
     dprintf(1, "Race started with %d cars\n", race->settings->carCount);
     return 0;
+}
+
+static void FinishCarConnections(Race* race) {
+    struct pollfd connections[MAX_CARS];
+    int pending = 0;
+
+    for (int i = 0; i < race->connectedCarsCount; ++i) {
+        int socket = race->clients[i].socket;
+        connections[i] = (struct pollfd){.fd = socket, .events = POLLIN};
+
+        if (race->state != RACE_FINISHED) {
+            SendRaceMessage(socket, RACE_STOP, NULL, 0);
+        }
+
+        // FIN идёт после уведомления; чтение остаётся доступным для завершения обмена.
+        shutdown(socket, SHUT_WR);
+        ++pending;
+    }
+
+    struct timespec begin;
+    clock_gettime(CLOCK_MONOTONIC, &begin);
+
+    // Дочитываем оставшиеся запросы до EOF, чтобы close не сбросил TCP-соединение.
+    while (pending > 0) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        long elapsedMs = (now.tv_sec - begin.tv_sec) * 1000 + (now.tv_nsec - begin.tv_nsec) / 1000000;
+        if (elapsedMs >= 1000) {
+            break;
+        }
+
+        int ready = poll(connections, race->connectedCarsCount, (int) (1000 - elapsedMs));
+        if (ready == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            break;
+        }
+
+        for (int i = 0; i < race->connectedCarsCount; ++i) {
+            if (connections[i].fd < 0 || connections[i].revents == 0) {
+                continue;
+            }
+
+            char discarded[1024];
+            ssize_t count = recv(connections[i].fd, discarded, sizeof(discarded), MSG_DONTWAIT);
+            if (count == -1 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) {
+                continue;
+            }
+
+            if (count <= 0) {
+                connections[i].fd = -1;
+                --pending;
+            }
+        }
+    }
 }
 
 static void StopRace(Race* race) {
@@ -642,12 +726,6 @@ static void StopRace(Race* race) {
     pthread_cond_broadcast(&race->viewers.condition);
     pthread_mutex_unlock(&race->mutex);
 
-    for (int i = 0; i < race->settings->carCount; ++i) {
-        if (race->clients[i].socket >= 0) {
-            shutdown(race->clients[i].socket, SHUT_RDWR);
-        }
-    }
-
     for (int i = 0; i < race->startedHandlersCount; ++i) {
         int error = pthread_join(race->clients[i].thread, NULL);
         if (error != 0) {
@@ -656,6 +734,7 @@ static void StopRace(Race* race) {
     }
 
     race->startedHandlersCount = 0;
+    FinishCarConnections(race);
 }
 
 int RunRace(Race* race) {
