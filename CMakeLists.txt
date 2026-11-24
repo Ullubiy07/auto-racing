@@ -32,3 +32,6 @@ add_executable(control ${CONTROL_SOURCE})
 target_include_directories(control PRIVATE src/common)
 target_link_libraries(control PRIVATE Threads::Threads)
 configure_target(control)
+
+enable_testing()
+add_subdirectory(tests)
