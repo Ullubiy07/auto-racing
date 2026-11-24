@@ -3,3 +3,4 @@ build
 logs
 *.zip
 .idea
+/docs/report_source/
