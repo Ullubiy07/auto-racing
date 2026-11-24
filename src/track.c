@@ -257,6 +257,7 @@ static Track* NewTrack(int width, int height) {
     track->map = (Cell**) (track + 1);
     track->width = width;
     track->height = height;
+    track->initCellCount = 0;
 
     Cell* cells = (Cell*) (track->map + height);
     for (int i = 0; i < height; ++i) {
@@ -266,6 +267,9 @@ static Track* NewTrack(int width, int height) {
 }
 
 void DestroyTrack(Track* track) {
+    for (int i = 0; i < track->initCellCount; ++i) {
+        DestroyCell(&track->map[i / track->width][i % track->width]);
+    }
     size_t size = sizeof(Track) + track->height * sizeof(Cell*) + track->width * track->height * sizeof(Cell);
     if (munmap(track, size) == -1) {
         perror("Unmap memory failed");
@@ -338,6 +342,7 @@ Track* LoadTrack(const char* fileName) {
                 DestroyTrack(track);
                 return NULL;
             }
+            ++track->initCellCount;
         }
     }
 

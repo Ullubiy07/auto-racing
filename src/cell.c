@@ -1,6 +1,4 @@
-#include <errno.h>
 #include <fcntl.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -86,30 +84,41 @@ int InitCell(Cell* cell, int x, int y, CellType type) {
     cell->type = type;
     cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
+    if (pthread_mutex_init(&cell->mutex, NULL)) {
+        perror("Initialize cell mutex failed");
+        return 1;
+    }
     return 0;
 }
 
-bool TryTakeCell(Cell* cell, Entity e, sem_t* sema) {
+void DestroyCell(Cell* cell) {
+    int error = pthread_mutex_destroy(&cell->mutex);
+    if (error != 0) {
+        dprintf(2, "Destroy cell mutex failed: %s\n", strerror(error));
+    }
+}
+
+bool TryTakeCell(Cell* cell, Entity e) {
     bool res = false;
-    while (sem_wait(sema) == -1 && errno == EINTR);
+    pthread_mutex_lock(&cell->mutex);
     if (cell->entity.type == ENTITY_NONE) {
         cell->entity = e;
         res = true;
     }
-    sem_post(sema);
+    pthread_mutex_unlock(&cell->mutex);
     return res;
 }
 
-void LeaveCell(Cell* cell, sem_t* sema) {
-    while (sem_wait(sema) == -1 && errno == EINTR);
+void LeaveCell(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
     cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
-    sem_post(sema);
+    pthread_mutex_unlock(&cell->mutex);
 }
 
-Entity CellEntity(Cell* cell, sem_t* sema) {
-    while (sem_wait(sema) == -1 && errno == EINTR);
+Entity CellEntity(Cell* cell) {
+    pthread_mutex_lock(&cell->mutex);
     Entity e = cell->entity;
-    sem_post(sema);
+    pthread_mutex_unlock(&cell->mutex);
     return e;
 }

@@ -1,7 +1,7 @@
 #ifndef CELL_H
 #define CELL_H
 
-#include <semaphore.h>
+#include <pthread.h>
 #include <stdbool.h>
 
 // Перечисление, описывающее тип клеток схемы трассы
@@ -83,14 +83,17 @@ typedef struct cell_t {
     CellType type;
     Entity entity;
     Road road;
+    pthread_mutex_t mutex;
 } Cell;
 
 int InitCell(Cell* cell, int x, int y, CellType type);
 
-bool TryTakeCell(Cell* cell, Entity e, sem_t* sema);
+void DestroyCell(Cell* cell);
 
-void LeaveCell(Cell* cell, sem_t* sema);
+bool TryTakeCell(Cell* cell, Entity e);
 
-Entity CellEntity(Cell* cell, sem_t* sema);
+void LeaveCell(Cell* cell);
+
+Entity CellEntity(Cell* cell);
 
 #endif
