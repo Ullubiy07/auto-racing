@@ -32,9 +32,19 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int result = InitCarClient(&client, &settings);
-    if (result == 0) {
-        result = RunCarClient(&client);
+    int result = 0;
+    while (!client.isInterrupted) {
+        result = InitCarClient(&client, &settings);
+        if (result == 0) {
+            result = RunCarClient(&client);
+        }
+
+        if (result != 0 || !client.isDisconnected) {
+            break;
+        }
+
+        settings.resumeId = client.car.id;
+        DestroyCarClient(&client);
     }
 
     action.sa_handler = SIG_IGN;

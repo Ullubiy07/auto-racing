@@ -10,6 +10,8 @@
 #include <unistd.h>
 
 #include "race.h"
+#include "car_protocol.h"
+#include "control_protocol.h"
 
 static void StopRace(Race* race);
 
@@ -36,6 +38,8 @@ int InitRace(Race* race, const RaceSettings* settings) {
     ResetStats(race);
 
     memset(race->cars, 0, sizeof(race->cars));
+    memset(race->carDisabled, 0, sizeof(race->carDisabled));
+    memset(race->waitingForReconnect, 0, sizeof(race->waitingForReconnect));
 
     for (int i = 0; i < MAX_CARS; ++i) {
         race->clients[i] = (ClientConnection){.socket = -1, .type = CLIENT_CAR};
@@ -214,6 +218,10 @@ static int StartRaceServer(Race* race) {
 }
 
 static bool ValidRegistration(const CarRegistrationMessage* message) {
+    if (message->resumeId < -1 || message->resumeId >= MAX_CARS) {
+        return false;
+    }
+
     if (!memchr(message->driverName, '\0', sizeof(message->driverName))) {
         return false;
     }
@@ -231,6 +239,55 @@ static bool ValidRegistration(const CarRegistrationMessage* message) {
     }
 
     return message->team.color >= 31 && message->team.color <= 37;
+}
+
+static int SendCarInitialization(Race* race, int id) {
+    CarInitMessage message = {0};
+
+    pthread_mutex_lock(&race->mutex);
+    message.mapWidth = race->track.width;
+    message.mapHeight = race->track.height;
+    message.settings = (CarSettings){.minSleepTimeMs = race->settings->carMinDelayMs,
+                                     .maxSleepTimeMs = race->settings->carMaxDelayMs,
+                                     .maxLaps = race->settings->rules.maxLaps};
+    message.car = race->cars[id];
+    message.car.isPaused = false;
+
+    for (int y = 0; y < race->track.height; ++y) {
+        for (int x = 0; x < race->track.width; ++x) {
+            message.map[y][x] = MakeCellData(&race->track.map[y][x]);
+        }
+    }
+    pthread_mutex_unlock(&race->mutex);
+
+    return SendRaceMessage(race->clients[id].socket, RACE_INIT, &message, sizeof(message));
+}
+
+static int RestoreCarConnection(Race* race, int id) {
+    int socket = race->clients[id].socket;
+
+    if (SendCarInitialization(race, id) == -1) {
+        return 1;
+    }
+
+    if (SendRaceMessage(socket, RACE_START, NULL, 0) == -1) {
+        return 1;
+    }
+
+    pthread_mutex_lock(&race->mutex);
+    race->cars[id].isPaused = false;
+    Car restoredCar = race->cars[id];
+    pthread_cond_broadcast(&race->startCondition);
+    pthread_cond_broadcast(&race->viewers.condition);
+
+    // Обработчик должен забрать новый сокет до следующей команды управления.
+    while (race->waitingForReconnect[id] && !race->isOver) {
+        pthread_cond_wait(&race->startCondition, &race->mutex);
+    }
+    pthread_mutex_unlock(&race->mutex);
+
+    dprintf(1, "Car %d restored at (%d, %d), laps %d\n", id, restoredCar.pos.x, restoredCar.pos.y, restoredCar.laps);
+    return 0;
 }
 
 static void RegisterCar(Race* race, int socket) {
@@ -252,11 +309,41 @@ static void RegisterCar(Race* race, int socket) {
         return;
     }
 
-    if (race->connectedCarsCount >= race->settings->carCount) {
+    bool resuming = registration.resumeId >= 0;
+    int id = resuming ? registration.resumeId : race->connectedCarsCount;
+
+    pthread_mutex_lock(&race->mutex);
+    if (resuming && accepted) {
+        if (id >= race->connectedCarsCount || !race->cars[id].isPaused || race->cars[id].isOut) {
+            accepted = false;
+        } else {
+            const Car* car = &race->cars[id];
+            accepted = strcmp(car->driverName, registration.driverName) == 0 &&
+                       strcmp(car->team.name, registration.team.name) == 0 &&
+                       car->team.color == registration.team.color;
+
+            // Старый обработчик сам закрывает сокет перед его заменой.
+            while (accepted && !race->waitingForReconnect[id] && !race->isOver && !race->isInterrupted) {
+                pthread_cond_wait(&race->startCondition, &race->mutex);
+            }
+
+            if (race->clients[id].socket >= 0 || race->isOver) {
+                accepted = false;
+            }
+        }
+    } else if (race->connectedCarsCount >= race->settings->carCount) {
         accepted = false;
     }
+    pthread_mutex_unlock(&race->mutex);
 
-    CarRegistrationResponse response = {.accepted = accepted, .id = accepted ? race->connectedCarsCount : -1};
+    if (race->isInterrupted || race->isOver) {
+        SendRaceMessage(socket, RACE_STOP, NULL, 0);
+        shutdown(socket, SHUT_WR);
+        close(socket);
+        return;
+    }
+
+    CarRegistrationResponse response = {.accepted = accepted, .id = accepted ? id : -1};
 
     if (SendRaceMessage(socket, RACE_REGISTRATION, &response, sizeof(response)) == -1) {
         close(socket);
@@ -276,7 +363,20 @@ static void RegisterCar(Race* race, int socket) {
         return;
     }
 
-    int id = response.id;
+    if (resuming) {
+        pthread_mutex_lock(&race->mutex);
+        race->clients[id].socket = socket;
+        bool restore = !race->carDisabled[id];
+        pthread_mutex_unlock(&race->mutex);
+
+        dprintf(1, "Car %d reconnected; waiting for restore\n", id);
+        if (restore && RestoreCarConnection(race, id)) {
+            close(socket);
+            race->clients[id].socket = -1;
+        }
+
+        return;
+    }
 
     pthread_mutex_lock(&race->mutex);
     InitCar(&race->cars[id], id, registration.driverName, registration.team);
@@ -288,6 +388,59 @@ static void RegisterCar(Race* race, int socket) {
 
     dprintf(1, "Car %d registered: %s, team %s (%d/%d)\n", id, registration.driverName, registration.team.name,
             race->connectedCarsCount, race->settings->carCount);
+}
+
+static void HandleControlConnection(Race* race, int socket) {
+    ControlRequest request;
+    if (RecvAll(socket, &request, sizeof(request)) == -1) {
+        close(socket);
+        return;
+    }
+
+    ControlResponse response = {0};
+    int id = request.carId;
+    bool restore = false;
+
+    pthread_mutex_lock(&race->mutex);
+    if (!race->isStarted || race->isOver) {
+        snprintf(response.message, sizeof(response.message), "Race is not running");
+    } else if (id < 0 || id >= race->connectedCarsCount) {
+        snprintf(response.message, sizeof(response.message), "Unknown car ID");
+    } else if (race->cars[id].isOut) {
+        snprintf(response.message, sizeof(response.message), "Car %d has left the race", id);
+    } else if (request.action == CONTROL_DISCONNECT) {
+        if (race->cars[id].isPaused) {
+            snprintf(response.message, sizeof(response.message), "Car %d is already disconnected", id);
+        } else {
+            race->carDisabled[id] = true;
+            race->cars[id].isPaused = true;
+            response.accepted = true;
+            snprintf(response.message, sizeof(response.message), "Car %d disconnection requested", id);
+        }
+    } else if (request.action == CONTROL_RESTORE) {
+        if (!race->carDisabled[id]) {
+            snprintf(response.message, sizeof(response.message), "Car %d is not disabled", id);
+        } else {
+            race->carDisabled[id] = false;
+            restore = race->waitingForReconnect[id] && race->clients[id].socket >= 0;
+            response.accepted = true;
+            snprintf(response.message, sizeof(response.message), "Car %d restoration enabled", id);
+        }
+    } else {
+        snprintf(response.message, sizeof(response.message), "Unknown control action");
+    }
+    pthread_cond_broadcast(&race->viewers.condition);
+    pthread_mutex_unlock(&race->mutex);
+
+    if (restore && RestoreCarConnection(race, id)) {
+        close(race->clients[id].socket);
+        race->clients[id].socket = -1;
+        response.accepted = false;
+        snprintf(response.message, sizeof(response.message), "Could not restore car %d connection", id);
+    }
+
+    SendAll(socket, &response, sizeof(response));
+    close(socket);
 }
 
 static int AcceptClientConnection(Race* race, int timeoutMs) {
@@ -348,6 +501,9 @@ static int AcceptClientConnection(Race* race, int timeoutMs) {
     case CLIENT_VIEWER:
         RegisterViewer(race, socket);
         break;
+    case CLIENT_CONTROL:
+        HandleControlConnection(race, socket);
+        break;
     default:
         dprintf(2, "Unknown client type\n");
         close(socket);
@@ -397,21 +553,8 @@ static int PlaceCarsOnGrid(Race* race) {
 
     UpdateRaceLeaderBoard(race);
     pthread_mutex_unlock(&race->mutex);
-    CarInitMessage message = {.mapWidth = race->track.width,
-                              .mapHeight = race->track.height,
-                              .settings = {.maxLaps = race->settings->rules.maxLaps,
-                                           .minSleepTimeMs = race->settings->carMinDelayMs,
-                                           .maxSleepTimeMs = race->settings->carMaxDelayMs}};
-
-    for (int y = 0; y < race->track.height; ++y) {
-        for (int x = 0; x < race->track.width; ++x) {
-            message.map[y][x] = MakeCellData(&race->track.map[y][x]);
-        }
-    }
-
     for (int i = 0; i < race->settings->carCount; ++i) {
-        message.pos = race->cars[i].pos;
-        if (SendRaceMessage(race->clients[i].socket, RACE_INIT, &message, sizeof(message)) == -1) {
+        if (SendCarInitialization(race, i) == -1) {
             perror("send car initialization");
             return 1;
         }
@@ -428,7 +571,7 @@ void TerminateRace(Race* race) {
 static bool ApplyCarMove(Race* race, int id, Point pos) {
     Car* car = &race->cars[id];
 
-    if (race->isOver || car->isOut) {
+    if (race->isOver || car->isOut || car->isPaused) {
         return false;
     }
 
@@ -473,6 +616,7 @@ static bool ApplyCarMove(Race* race, int id, Point pos) {
         race->winnerId = id;
         race->stats.winner = car->driverName;
         race->isOver = true;
+        pthread_cond_broadcast(&race->startCondition);
         dprintf(1, "Winner: %s (car %d)\n", car->driverName, id);
     }
 
@@ -486,12 +630,18 @@ static CarMoveResponse CarResponse(const Race* race, int id, bool allowed) {
     return response;
 }
 
-static void MarkCarOut(Race* race, int id) {
+// true — вместо схода обработчик должен ждать восстановления.
+static bool MarkCarOut(Race* race, int id) {
     pthread_mutex_lock(&race->mutex);
 
     if (race->isOver || race->cars[id].isOut) {
         pthread_mutex_unlock(&race->mutex);
-        return;
+        return false;
+    }
+
+    if (race->cars[id].isPaused) {
+        pthread_mutex_unlock(&race->mutex);
+        return true;
     }
 
     Car* car = &race->cars[id];
@@ -514,9 +664,45 @@ static void MarkCarOut(Race* race, int id) {
     if (allOut) {
         race->stats.status = "All cars are out";
         race->isOver = true;
+        pthread_cond_broadcast(&race->startCondition);
     }
 
     pthread_mutex_unlock(&race->mutex);
+    return false;
+}
+
+static int WaitForCarReconnect(Race* race, int id, int socket) {
+    SendRaceMessage(socket, RACE_DISCONNECT, NULL, 0);
+    shutdown(socket, SHUT_WR);
+
+    struct pollfd connection = {.fd = socket, .events = POLLIN};
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        if (poll(&connection, 1, 100) <= 0) {
+            continue;
+        }
+
+        char discarded[256];
+        if (recv(socket, discarded, sizeof(discarded), MSG_DONTWAIT) <= 0) {
+            break;
+        }
+    }
+
+    pthread_mutex_lock(&race->mutex);
+    close(socket);
+    race->clients[id].socket = -1;
+    race->waitingForReconnect[id] = true;
+    pthread_cond_broadcast(&race->startCondition);
+    dprintf(1, "Car %d disconnected; state saved\n", id);
+
+    while (race->cars[id].isPaused && !race->isOver) {
+        pthread_cond_wait(&race->startCondition, &race->mutex);
+    }
+
+    int restoredSocket = race->isOver ? -1 : race->clients[id].socket;
+    race->waitingForReconnect[id] = false;
+    pthread_cond_broadcast(&race->startCondition);
+    pthread_mutex_unlock(&race->mutex);
+    return restoredSocket;
 }
 
 static void* CarHandler(void* arg) {
@@ -542,6 +728,16 @@ static void* CarHandler(void* arg) {
         CarMoveResponse response = CarResponse(race, id, false);
         pthread_mutex_unlock(&race->mutex);
 
+        if (response.car.isPaused && !response.raceOver) {
+            socket = WaitForCarReconnect(race, id, socket);
+            received = 0;
+            if (socket < 0) {
+                break;
+            }
+
+            continue;
+        }
+
         if (response.raceOver) {
             if (!race->isInterrupted) {
                 SendRaceMessage(socket, RACE_UPDATE, &response, sizeof(response));
@@ -557,7 +753,9 @@ static void* CarHandler(void* arg) {
                 continue;
             }
 
-            MarkCarOut(race, id);
+            if (MarkCarOut(race, id)) {
+                continue;
+            }
             break;
         }
 
@@ -572,7 +770,9 @@ static void* CarHandler(void* arg) {
         }
 
         if (count <= 0) {
-            MarkCarOut(race, id);
+            if (MarkCarOut(race, id)) {
+                continue;
+            }
             break;
         }
 
@@ -601,7 +801,9 @@ static void* CarHandler(void* arg) {
         }
 
         if (SendRaceMessage(socket, RACE_UPDATE, &response, sizeof(response)) == -1) {
-            MarkCarOut(race, id);
+            if (MarkCarOut(race, id)) {
+                continue;
+            }
             break;
         }
 
@@ -610,6 +812,9 @@ static void* CarHandler(void* arg) {
         }
     }
 
+    pthread_mutex_lock(&race->mutex);
+    pthread_cond_broadcast(&race->startCondition);
+    pthread_mutex_unlock(&race->mutex);
     --race->activeHandlersCount;
     return NULL;
 }
@@ -655,27 +860,35 @@ static int StartRace(Race* race) {
 }
 
 static void FinishCarConnections(Race* race) {
-    struct pollfd connections[MAX_CARS];
+    struct pollfd connections[MAX_CARS + 1];
     int pending = 0;
+    bool acceptReconnect = false;
 
     for (int i = 0; i < race->connectedCarsCount; ++i) {
         int socket = race->clients[i].socket;
         connections[i] = (struct pollfd){.fd = socket, .events = POLLIN};
 
-        if (race->state != RACE_FINISHED) {
-            SendRaceMessage(socket, RACE_STOP, NULL, 0);
+        if (socket < 0) {
+            acceptReconnect |= race->cars[i].isPaused;
+            continue;
         }
+
+        SendRaceMessage(socket, RACE_STOP, NULL, 0);
 
         // FIN идёт после уведомления; чтение остаётся доступным для завершения обмена.
         shutdown(socket, SHUT_WR);
         ++pending;
     }
 
+    // Машина могла закрыть старый сокет и ещё не успеть подключиться заново.
+    connections[race->connectedCarsCount] =
+        (struct pollfd){.fd = acceptReconnect ? race->socket : -1, .events = POLLIN};
+
     struct timespec begin;
     clock_gettime(CLOCK_MONOTONIC, &begin);
 
     // Дочитываем оставшиеся запросы до EOF, чтобы close не сбросил TCP-соединение.
-    while (pending > 0) {
+    while (pending > 0 || acceptReconnect) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);
         long elapsedMs = (now.tv_sec - begin.tv_sec) * 1000 + (now.tv_nsec - begin.tv_nsec) / 1000000;
@@ -683,13 +896,17 @@ static void FinishCarConnections(Race* race) {
             break;
         }
 
-        int ready = poll(connections, race->connectedCarsCount, (int) (1000 - elapsedMs));
+        int ready = poll(connections, race->connectedCarsCount + 1, (int) (1000 - elapsedMs));
         if (ready == -1) {
             if (errno == EINTR) {
                 continue;
             }
 
             break;
+        }
+
+        if (connections[race->connectedCarsCount].revents != 0) {
+            AcceptClientConnection(race, 0);
         }
 
         for (int i = 0; i < race->connectedCarsCount; ++i) {
@@ -834,7 +1051,10 @@ void SaveRaceLog(Race* race) {
         const Car* car = &standing->car;
 
         dprintf(fd, "   %-3d | %-12s | %-12s | %-5d | %-5d | %-5d | %-5s\n", i + 1, car->team.name, car->driverName,
-                car->laps, standing->lane, standing->distToFinish, car->isOut ? "OUT" : "IN RACE");
+                car->laps, standing->lane, standing->distToFinish,
+                car->isOut      ? "OUT"
+                : car->isPaused ? "PAUSED"
+                                : "IN RACE");
     }
 
     if (close(fd) == -1) {

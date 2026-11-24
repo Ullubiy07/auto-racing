@@ -89,6 +89,10 @@ void DrawLeaderBoard(const Judge* judge, int fd) {
         }
 
         dprintf(fd, " | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s%s\n", car->team.name, car->driverName, car->laps,
-                standing->lane, standing->distToFinish, car->isOut ? "OUT" : "IN RACE", color ? "\x1b[K" : "");
+                standing->lane, standing->distToFinish,
+                car->isOut      ? "OUT"
+                : car->isPaused ? "PAUSED"
+                                : "IN RACE",
+                color ? "\x1b[K" : "");
     }
 }

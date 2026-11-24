@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 
 #include "common.h"
+#include "car_protocol.h"
 
 int InitCar(Car* car, int id, const char* driverName, Team team) {
     car->id = id;
@@ -13,6 +14,7 @@ int InitCar(Car* car, int id, const char* driverName, Team team) {
     car->laps = 0;
     car->hasPassedStart = false;
     car->isOut = false;
+    car->isPaused = false;
 
     return 0;
 }

@@ -68,7 +68,7 @@ typedef struct Race {
     atomic_int activeHandlersCount;  // Ещё работающие обработчики
 
     pthread_mutex_t mutex;          // Защищает проверку и выполнение хода целиком
-    pthread_cond_t startCondition;  // Общий старт обработчиков
+    pthread_cond_t startCondition;  // Старт и восстановление обработчиков
 
     bool isStarted;   // Обработчикам разрешено выполнять ходы
     RaceState state;  // Этап гонки для наблюдателя; защищён mutex
@@ -81,6 +81,8 @@ typedef struct Race {
     ClientConnection clients[MAX_CARS];  // Соединения машин по ID
     CarHandlerArgs handlerArgs[MAX_CARS];
     ViewerServer viewers;
+    bool carDisabled[MAX_CARS];          // Запрет восстановления до команды restore
+    bool waitingForReconnect[MAX_CARS];  // Старый сокет закрыт, обработчик ждёт подключения
 } Race;
 
 // Подготовить трассу и синхронизацию; 0 — успех.

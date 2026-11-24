@@ -29,6 +29,7 @@ typedef struct Car {
     Point prevPos;        // Предыдущая клетка; {-1, -1} до первого хода
     bool hasPassedStart;  // Первое пересечение старта уже было; следующие дают круг
     bool isOut;           // Сошла ли машина с дистанции
+    bool isPaused;        // Участие приостановлено командой control
 } Car;
 
 // Заполнить данные машины; стартовая позиция задаётся отдельно.
@@ -56,50 +57,8 @@ typedef struct {
 // Копирует состояние, самостоятельно захватывая мьютекс клетки.
 CellData MakeCellData(Cell* cell);
 
-// Задержки между ходами (мс) и лимит кругов.
-typedef struct {
-    int minSleepTimeMs;
-    int maxSleepTimeMs;
-    int maxLaps;  // Кругов для победы
-} CarSettings;
-
-// Данные машины для регистрации на сервере.
-typedef struct {
-    char driverName[MAX_DRIVER_NAME_SIZE];
-    Team team;
-} CarRegistrationMessage;
-
-// Результат регистрации и назначенный ID.
-typedef struct {
-    bool accepted;
-    int id;  // Назначается сервером; -1 при отказе
-} CarRegistrationResponse;
-
-// Карта, настройки и стартовая позиция от сервера.
-typedef struct {
-    int mapWidth;
-    int mapHeight;
-    CellData map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Клетки map[y][x] в пределах height и width
-    CarSettings settings;
-    Point pos;  // Стартовая позиция машины
-} CarInitMessage;
-
-// Запрос хода к соседней клетке.
-typedef struct {
-    Point pos;  // Желаемая следующая клетка
-} CarMoveRequest;
-
-// Результат хода или уведомление об окончании гонки.
-typedef struct {
-    bool allowed;  // Запрошенный ход выполнен
-    Car car;       // Состояние машины после обработки запроса сервером
-
-    bool raceOver;  // Гонка завершена для всех машин
-    int winnerId;   // -1, если победитель пока не определён
-} CarMoveResponse;
-
 // Первое сообщение после connect: роль клиента; затем регистрация выбранной роли.
-typedef enum { CLIENT_CAR, CLIENT_VIEWER } ClientType;
+typedef enum { CLIENT_CAR, CLIENT_VIEWER, CLIENT_CONTROL } ClientType;
 
 // Соединение клиента и его поток обработки на сервере.
 typedef struct {
@@ -107,18 +66,5 @@ typedef struct {
     pthread_t thread;
     ClientType type;
 } ClientConnection;
-
-// Заголовок сообщения сервера машине; после него идут данные указанного типа.
-typedef enum {
-    RACE_START,
-    RACE_STOP,
-    RACE_REGISTRATION,  // CarRegistrationResponse
-    RACE_INIT,          // CarInitMessage
-    RACE_UPDATE         // CarMoveResponse
-} RaceCommand;
-
-// Отправить заголовок и данные; size = 0 для команд без данных.
-// Сообщения одному клиенту отправляет только один поток одновременно.
-int SendRaceMessage(int socket, RaceCommand command, const void* data, size_t size);
 
 #endif

@@ -53,6 +53,7 @@ bool ParseCLIArgs(CarClientSettings* args, int argc, char* argv[]) {
     int opt;
     memset(args, 0, sizeof(*args));
     strcpy(args->ip, "127.0.0.1");
+    args->resumeId = -1;
 
     while ((opt = getopt_long(argc, argv, "n:t:c:a:p:h", longOptions, NULL)) != -1) {
         switch (opt) {

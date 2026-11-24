@@ -27,6 +27,13 @@ static int WaitForMessage(CarClient* client, RaceCommand expected) {
         return 1;
     }
 
+    if (command == RACE_DISCONNECT) {
+        client->isOver = true;
+        client->isDisconnected = true;
+        dprintf(1, "%s: disconnected; reconnecting to wait for restore\n", client->car.driverName);
+        return 1;
+    }
+
     if (command != expected) {
         dprintf(2, "Unexpected server message type: %d\n", command);
         client->failed = true;
@@ -43,6 +50,7 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
     client->isOver = false;
     client->failed = false;
     client->isStoppedByServer = false;
+    client->isDisconnected = false;
     client->winnerId = -1;
 
     if (client->isInterrupted) {
@@ -71,7 +79,7 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
         goto error;
     }
 
-    CarRegistrationMessage registration = {.team = settings->team};
+    CarRegistrationMessage registration = {.team = settings->team, .resumeId = settings->resumeId};
 
     strcpy(registration.driverName, settings->driverName);
 
@@ -145,13 +153,18 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
         goto error;
     }
 
-    if (msg.pos.x < 0 || msg.pos.x >= msg.mapWidth) {
+    if (msg.car.pos.x < 0 || msg.car.pos.x >= msg.mapWidth) {
         dprintf(2, "Invalid starting position in car initialization msg\n");
         goto error;
     }
 
-    if (msg.pos.y < 0 || msg.pos.y >= msg.mapHeight) {
+    if (msg.car.pos.y < 0 || msg.car.pos.y >= msg.mapHeight) {
         dprintf(2, "Invalid starting position in car initialization msg\n");
+        goto error;
+    }
+
+    if (msg.car.id != client->car.id || msg.car.laps < 0 || msg.car.isOut || msg.car.isPaused) {
+        dprintf(2, "Invalid car state in initialization msg\n");
         goto error;
     }
 
@@ -167,12 +180,12 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
     memcpy(client->map, msg.map, sizeof(client->map));
     client->settings = msg.settings;
 
-    client->car.pos = msg.pos;
-    client->cell = &client->map[msg.pos.y][msg.pos.x];
+    client->car = msg.car;
+    client->cell = &client->map[msg.car.pos.y][msg.car.pos.x];
     client->socket = clientSocket;
 
-    dprintf(1, "Car %d initialized at (%d, %d), track %dx%d\n", client->car.id, msg.pos.x, msg.pos.y, msg.mapWidth,
-            msg.mapHeight);
+    dprintf(1, "Car %d initialized at (%d, %d), track %dx%d\n", client->car.id, msg.car.pos.x, msg.car.pos.y,
+            msg.mapWidth, msg.mapHeight);
     return 0;
 
 error:
@@ -381,7 +394,7 @@ int RunCarClient(CarClient* client) {
 
     if (client->isInterrupted) {
         dprintf(1, "%s: leaving the race\n", client->car.driverName);
-    } else if (client->isOver && !client->failed && !client->isStoppedByServer) {
+    } else if (client->isOver && !client->failed && !client->isStoppedByServer && !client->isDisconnected) {
         dprintf(1, "%s: race finished, winner ID %d\n", client->car.driverName, client->winnerId);
     }
 
