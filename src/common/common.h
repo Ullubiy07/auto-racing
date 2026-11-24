@@ -16,7 +16,7 @@ int RecvAll(int socket, void* data, size_t size);
 // Название и цвет команды.
 typedef struct Team {
     char name[MAX_TEAM_NAME_SIZE];
-    int color;  // Цвет команды
+    int color;  // ANSI-код цвета, 31–37
 } Team;
 
 // Машина, участвующая в гонке
@@ -26,8 +26,8 @@ typedef struct Car {
     Team team;            // Команда, в которой состоит машина
     Point pos;            // Местоположение (x, y)
     int laps;             // Число пройденных кругов
-    Point prevPos;        // Предыдущее местоположение
-    bool hasPassedStart;  // Прошла ли машина линию старта
+    Point prevPos;        // Предыдущая клетка; {-1, -1} до первого хода
+    bool hasPassedStart;  // Первое пересечение старта уже было; следующие дают круг
     bool isOut;           // Сошла ли машина с дистанции
 } Car;
 
@@ -47,7 +47,7 @@ bool IsMoveAllowed(const Car* car, CellType currentType, const Road* road, Point
 typedef struct {
     int x;
     int y;
-    int color;
+    int color;  // ANSI-код цвета клетки
     CellType type;
     Entity entity;
     Road road;
@@ -60,7 +60,7 @@ CellData MakeCellData(Cell* cell);
 typedef struct {
     int minSleepTimeMs;
     int maxSleepTimeMs;
-    int maxLaps;
+    int maxLaps;  // Кругов для победы
 } CarSettings;
 
 // Данные машины для регистрации на сервере.
@@ -86,24 +86,24 @@ typedef struct {
 
 // Запрос хода к соседней клетке.
 typedef struct {
-    Point pos;
+    Point pos;  // Желаемая следующая клетка
 } CarMoveRequest;
 
 // Результат хода или уведомление об окончании гонки.
 typedef struct {
-    bool allowed;
-    Car car;  // Состояние машины после обработки запроса сервером
+    bool allowed;  // Запрошенный ход выполнен
+    Car car;       // Состояние машины после обработки запроса сервером
 
-    bool raceOver;
-    int winnerId;  // -1, если победитель пока не определён
+    bool raceOver;  // Гонка завершена для всех машин
+    int winnerId;   // -1, если победитель пока не определён
 } CarMoveResponse;
 
-// Роль подключённого клиента.
+// Первое сообщение после connect: роль клиента; затем регистрация выбранной роли.
 typedef enum { CLIENT_CAR, CLIENT_VIEWER } ClientType;
 
 // Соединение клиента и его поток обработки на сервере.
 typedef struct {
-    int socket;
+    int socket;  // Сокет принятого клиента
     pthread_t thread;
     ClientType type;
 } ClientConnection;

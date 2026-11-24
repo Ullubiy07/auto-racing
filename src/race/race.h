@@ -4,6 +4,8 @@
 #include "common.h"
 #include "track.h"
 #include "judge.h"
+#include "viewer_protocol.h"
+#include "viewer_server.h"
 
 #include <pthread.h>
 #include <stdatomic.h>
@@ -26,23 +28,23 @@ typedef struct {
 
     TeamConfig teams[MAX_TEAMS];
     int teamCount;  // Количество команд
-    int carCount;
+    int carCount;   // Сколько машин дождаться перед стартом
 
     JudgeRules rules;  // Правила гонки
 
-    int drawDelayMs;
+    int drawDelayMs;  // Интервал снимков для viewer, мс
     int carMinDelayMs;
     int carMaxDelayMs;
     char mapFile[250];
     char logFile[250];
-    bool mapOnly;
+    bool mapOnly;  // Показать карту на сервере перед стартом
 } RaceSettings;
 
 // Итоговые данные для лога.
 typedef struct {
-    double duration;
+    double duration;  // Длительность в секундах
     char* status;
-    char* winner;
+    char* winner;  // Имя победителя или NULL
 } RaceStats;
 
 // Гонка и ID машины, передаваемые потоку обработки.
@@ -56,27 +58,29 @@ typedef struct Race {
     const RaceSettings* settings;  // Настройки для инициализации гонки
     Track track;                   // Гоночная трасса
 
-    Car cars[MAX_CARS];
-    Judge judge;  // Таблица лидеров для вывода и лога
+    Car cars[MAX_CARS];  // Индекс совпадает с ID машины
+    Judge judge;         // Таблица лидеров для вывода и лога
 
     RaceStats stats;  // Статистика для сохранения лога
 
-    atomic_bool isInterrupted;
-    atomic_bool isOver;
+    atomic_bool isInterrupted;       // Запрошена остановка по SIGINT
+    atomic_bool isOver;              // Новые ходы больше не принимаются
     atomic_int activeHandlersCount;  // Ещё работающие обработчики
 
-    pthread_mutex_t mutex;  // Защищает проверку и выполнение хода целиком
+    pthread_mutex_t mutex;          // Защищает проверку и выполнение хода целиком
     pthread_cond_t startCondition;  // Общий старт обработчиков
 
-    bool isStarted;
-    int winnerId;
+    bool isStarted;   // Обработчикам разрешено выполнять ходы
+    RaceState state;  // Этап гонки для наблюдателя; защищён mutex
+    int winnerId;     // -1, если победителя нет
 
-    int connectedCarsCount;
+    int connectedCarsCount;    // Успешно зарегистрированные машины
     int startedHandlersCount;  // Созданные потоки для pthread_join
 
-    int socket;
-    ClientConnection clients[MAX_CARS];
+    int socket;                          // Слушающий сокет сервера
+    ClientConnection clients[MAX_CARS];  // Соединения машин по ID
     CarHandlerArgs handlerArgs[MAX_CARS];
+    ViewerServer viewers;
 } Race;
 
 // Подготовить трассу и синхронизацию; 0 — успех.

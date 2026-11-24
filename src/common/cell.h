@@ -72,28 +72,28 @@ typedef enum { ENTITY_CAR, ENTITY_NONE } EntityType;
 // Содержимое клетки; id = -1 для пустой клетки.
 typedef struct {
     EntityType type;
-    int id;
+    int id;  // ID машины; -1 для ENTITY_NONE
 } Entity;
 
 // Связи дороги; отсутствующий сосед обозначается {-1, -1}.
 typedef struct {
-    int lane;
-    int distToFinish;
-    Point forward;
-    Point back;
-    Point left;
-    Point right;
+    int lane;          // Номер полосы
+    int distToFinish;  // Расстояние до финиша в клетках; -1, если нет пути
+    Point forward;     // Сосед по ходу движения
+    Point back;        // Сосед против хода движения
+    Point left;        // Сосед слева по ходу движения
+    Point right;       // Сосед справа по ходу движения
 } Road;
 
 // Серверная клетка с мьютексом для доступа к содержимому.
 typedef struct cell_t {
     int x;
     int y;
-    int color;
+    int color;  // ANSI-код цвета клетки
     CellType type;
     Entity entity;
     Road road;
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex;  // Защищает entity
 } Cell;
 
 // Заполнить клетку и создать мьютекс; 0 — успех.

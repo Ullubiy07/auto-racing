@@ -18,17 +18,17 @@ typedef struct {
 typedef struct {
     int socket;
     Car car;
-    CellData* cell;  // Текущая клетка машины
+    CellData* cell;  // Указатель на текущую клетку в map
 
     int mapWidth;
     int mapHeight;
-    CellData map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Карта клеток
+    CellData map[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];  // Копия карты; занятость клеток не обновляется
     CarSettings settings;
 
-    bool isOver;
-    bool failed;
-    int winnerId;  // -1, пока победитель неизвестен
-    volatile sig_atomic_t isInterrupted;
+    bool isOver;                          // Цикл клиента завершён, в том числе при ошибке
+    bool failed;                          // Ошибка обмена или некорректный ответ сервера
+    int winnerId;                         // -1, пока победитель неизвестен
+    volatile sig_atomic_t isInterrupted;  // Флаг обработчика SIGINT
 } CarClient;
 
 // Подключиться, зарегистрироваться и получить карту; 0 — успех.

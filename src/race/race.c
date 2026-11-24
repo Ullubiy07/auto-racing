@@ -29,6 +29,7 @@ int InitRace(Race* race, const RaceSettings* settings) {
     race->isOver = false;
     race->activeHandlersCount = 0;
     race->isStarted = false;
+    race->state = RACE_WAITING;
     race->winnerId = -1;
 
     InitJudge(&race->judge, &settings->rules);
@@ -58,7 +59,14 @@ int InitRace(Race* race, const RaceSettings* settings) {
         return 1;
     }
 
+    if (InitViewerServer(&race->viewers)) {
+        pthread_cond_destroy(&race->startCondition);
+        pthread_mutex_destroy(&race->mutex);
+        return 1;
+    }
+
     if (LoadTrack(&race->track, settings->mapFile)) {
+        pthread_cond_destroy(&race->viewers.condition);
         pthread_cond_destroy(&race->startCondition);
         pthread_mutex_destroy(&race->mutex);
         return 1;
@@ -71,6 +79,8 @@ void DestroyRace(Race* race) {
     if (race->startedHandlersCount > 0) {
         StopRace(race);
     }
+
+    StopViewerServer(race);
 
     for (int i = 0; i < race->settings->carCount; ++i) {
         if (race->clients[i].socket >= 0) {
@@ -85,6 +95,7 @@ void DestroyRace(Race* race) {
     }
 
     DestroyTrack(&race->track);
+    pthread_cond_destroy(&race->viewers.condition);
     pthread_cond_destroy(&race->startCondition);
     pthread_mutex_destroy(&race->mutex);
 }
@@ -101,11 +112,7 @@ static void UpdateRaceLeaderBoard(Race* race) {
         const Car* car = &race->cars[i];
         const Road* road = &race->track.map[car->pos.y][car->pos.x].road;
 
-        standings[i] = (CarStanding){
-            .car = *car,
-            .lane = road->lane,
-            .distToFinish = road->distToFinish
-        };
+        standings[i] = (CarStanding){.car = *car, .lane = road->lane, .distToFinish = road->distToFinish};
     }
 
     UpdateLeaderBoard(&race->judge, standings, race->connectedCarsCount);
@@ -139,6 +146,7 @@ static void DrawRace(Race* race) {
 static void PaintStartLine(Race* race, int color) {
     Track* track = &race->track;
 
+    pthread_mutex_lock(&race->mutex);
     for (int i = 0; i < track->height; ++i) {
         for (int j = 0; j < track->width; ++j) {
             Cell* cell = &track->map[i][j];
@@ -148,6 +156,7 @@ static void PaintStartLine(Race* race, int color) {
             }
         }
     }
+    pthread_mutex_unlock(&race->mutex);
 }
 
 static void DrawRaceStart(Race* race) {
@@ -224,86 +233,128 @@ static bool ValidRegistration(const CarRegistrationMessage* message) {
     return message->team.color >= 31 && message->team.color <= 37;
 }
 
+static void RegisterCar(Race* race, int socket) {
+    CarRegistrationMessage registration;
+    if (RecvAll(socket, &registration, sizeof(registration)) == -1) {
+        if (!race->isInterrupted) {
+            perror("receive car registration");
+        }
+
+        close(socket);
+        return;
+    }
+
+    bool accepted = ValidRegistration(&registration);
+    if (race->isInterrupted || race->isOver || race->connectedCarsCount >= race->settings->carCount) {
+        accepted = false;
+    }
+
+    CarRegistrationResponse response = {.accepted = accepted, .id = accepted ? race->connectedCarsCount : -1};
+
+    if (SendAll(socket, &response, sizeof(response)) == -1) {
+        close(socket);
+        return;
+    }
+
+    if (!accepted) {
+        dprintf(2, "Car registration rejected\n");
+        close(socket);
+        return;
+    }
+
+    struct timeval timeout = {0};
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+        perror("clear registration timeout");
+        close(socket);
+        return;
+    }
+
+    int id = response.id;
+
+    pthread_mutex_lock(&race->mutex);
+    InitCar(&race->cars[id], id, registration.driverName, registration.team);
+    race->cars[id].pos = (Point){-1, -1};
+    race->clients[id].socket = socket;
+    ++race->connectedCarsCount;
+    pthread_cond_broadcast(&race->viewers.condition);
+    pthread_mutex_unlock(&race->mutex);
+
+    dprintf(1, "Car %d registered: %s, team %s (%d/%d)\n", id, registration.driverName, registration.team.name,
+            race->connectedCarsCount, race->settings->carCount);
+}
+
+static int AcceptClientConnection(Race* race, int timeoutMs) {
+    CleanupViewerConnections(&race->viewers);
+
+    struct pollfd listener = {.fd = race->socket, .events = POLLIN};
+
+    int ready = poll(&listener, 1, timeoutMs);
+    if (ready == -1) {
+        if (errno == EINTR) {
+            return 0;
+        }
+
+        perror("wait for client connection");
+        return 1;
+    }
+
+    if (ready == 0) {
+        return 0;
+    }
+
+    int socket = accept(race->socket, NULL, NULL);
+    if (socket == -1) {
+        if (errno == EINTR) {
+            return 0;
+        }
+
+        perror("accept client connection");
+        return 1;
+    }
+
+    // Ограничиваем незавершённую регистрацию и отправку медленному клиенту.
+    struct timeval receiveTimeout = {.tv_sec = 3};
+    struct timeval sendTimeout = {.tv_sec = 1};
+
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &receiveTimeout, sizeof(receiveTimeout)) == -1) {
+        perror("set registration timeout");
+        close(socket);
+        return 0;
+    }
+
+    if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &sendTimeout, sizeof(sendTimeout)) == -1) {
+        perror("set client send timeout");
+        close(socket);
+        return 0;
+    }
+
+    ClientType type;
+    if (RecvAll(socket, &type, sizeof(type)) == -1) {
+        close(socket);
+        return 0;
+    }
+
+    switch (type) {
+    case CLIENT_CAR:
+        RegisterCar(race, socket);
+        break;
+    case CLIENT_VIEWER:
+        RegisterViewer(race, socket);
+        break;
+    default:
+        dprintf(2, "Unknown client type\n");
+        close(socket);
+        break;
+    }
+
+    return 0;
+}
+
 static int WaitForCarConnections(Race* race) {
     while (race->connectedCarsCount < race->settings->carCount && !race->isInterrupted) {
-        struct pollfd listener = {.fd = race->socket, .events = POLLIN};
-
-        int ready = poll(&listener, 1, 100);
-        if (ready == -1) {
-            if (errno == EINTR) {
-                continue;
-            }
-
-            perror("wait for car connection");
+        if (AcceptClientConnection(race, 100)) {
             return 1;
         }
-
-        if (ready == 0) {
-            continue;
-        }
-
-        int socket = accept(race->socket, NULL, NULL);
-        if (socket == -1) {
-            if (errno == EINTR) {
-                continue;
-            }
-
-            perror("accept car connection");
-            return 1;
-        }
-
-        // Незавершённая регистрация не должна навсегда блокировать организатора.
-        struct timeval timeout = {.tv_sec = 3};
-
-        if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
-            perror("set registration timeout");
-            close(socket);
-            return 1;
-        }
-
-        CarRegistrationMessage registration;
-        if (RecvAll(socket, &registration, sizeof(registration)) == -1) {
-            if (!race->isInterrupted) {
-                perror("receive car registration");
-            }
-
-            close(socket);
-            continue;
-        }
-
-        bool accepted = ValidRegistration(&registration);
-
-        if (race->isInterrupted) {
-            accepted = false;
-        }
-
-        CarRegistrationResponse response = {.accepted = accepted, .id = accepted ? race->connectedCarsCount : -1};
-
-        if (SendAll(socket, &response, sizeof(response)) == -1) {
-            dprintf(2, "Car registration rejected\n");
-            close(socket);
-            continue;
-        }
-
-        if (!accepted) {
-            dprintf(2, "Car registration rejected\n");
-            close(socket);
-            continue;
-        }
-
-        timeout.tv_sec = 0;
-        if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
-            perror("clear registration timeout");
-            close(socket);
-            return 1;
-        }
-
-        int id = response.id;
-        InitCar(&race->cars[id], id, registration.driverName, registration.team);
-        race->clients[id].socket = socket;
-        ++race->connectedCarsCount;
-        dprintf(1, "Car %d registered: %s, team %s (%d/%d)\n", id, registration.driverName, registration.team.name,
-                race->connectedCarsCount, race->settings->carCount);
     }
 
     if (race->isInterrupted) {
@@ -314,12 +365,14 @@ static int WaitForCarConnections(Race* race) {
 }
 
 static int PlaceCarsOnGrid(Race* race) {
+    pthread_mutex_lock(&race->mutex);
     Point pos = race->track.grid.pos;
     Cell* start = &race->track.map[pos.y][pos.x];
     for (int i = 0; i < race->settings->carCount; ++i) {
         pos = start->road.back;
         if (pos.x < 0 || pos.x >= race->track.width || pos.y < 0 || pos.y >= race->track.height) {
             dprintf(2, "Track capacity exceeded at car %d\n", i);
+            pthread_mutex_unlock(&race->mutex);
             return 1;
         }
 
@@ -328,6 +381,7 @@ static int PlaceCarsOnGrid(Race* race) {
 
         if (!TryTakeCell(start, entity)) {
             dprintf(2, "Starting cell is occupied\n");
+            pthread_mutex_unlock(&race->mutex);
             return 1;
         }
 
@@ -335,6 +389,7 @@ static int PlaceCarsOnGrid(Race* race) {
     }
 
     UpdateRaceLeaderBoard(race);
+    pthread_mutex_unlock(&race->mutex);
     CarInitMessage message = {.mapWidth = race->track.width,
                               .mapHeight = race->track.height,
                               .settings = {.maxLaps = race->settings->rules.maxLaps,
@@ -563,7 +618,9 @@ static int StartRace(Race* race) {
 
     pthread_mutex_lock(&race->mutex);
     race->isStarted = true;
+    race->state = RACE_RUNNING;
     pthread_cond_broadcast(&race->startCondition);
+    pthread_cond_broadcast(&race->viewers.condition);
     pthread_mutex_unlock(&race->mutex);
 
     dprintf(1, "Race started with %d cars\n", race->settings->carCount);
@@ -573,7 +630,16 @@ static int StartRace(Race* race) {
 static void StopRace(Race* race) {
     pthread_mutex_lock(&race->mutex);
     race->isOver = true;
+    if (race->isInterrupted) {
+        race->state = RACE_INTERRUPTED;
+    } else if (!race->isStarted) {
+        race->state = RACE_FAILED;
+    } else {
+        race->state = RACE_FINISHED;
+    }
+
     pthread_cond_broadcast(&race->startCondition);
+    pthread_cond_broadcast(&race->viewers.condition);
     pthread_mutex_unlock(&race->mutex);
 
     for (int i = 0; i < race->settings->carCount; ++i) {
@@ -618,9 +684,10 @@ int RunRace(Race* race) {
     clock_gettime(CLOCK_MONOTONIC, &begin);
 
     while (race->activeHandlersCount > 0 && !race->isInterrupted) {
-        struct timespec delay = {.tv_nsec = 20000000L};
-
-        nanosleep(&delay, NULL);
+        if (AcceptClientConnection(race, 20)) {
+            result = 1;
+            break;
+        }
     }
 
     goto finish;
@@ -636,6 +703,7 @@ startupError:
 
 finish:
     StopRace(race);
+    StopViewerServer(race);
     if (race->isInterrupted) {
         race->stats.status = "Interrupted by user";
         dprintf(1, "Race interrupted by user\n");

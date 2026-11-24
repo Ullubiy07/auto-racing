@@ -10,13 +10,13 @@
 
 typedef struct {
     Point pos;
-    Direction dir;
+    Direction dir;  // Направление движения при обходе трассы
 } Node;
 
 typedef struct {
     Node data[MAX_MAP_HEIGHT * MAX_MAP_WIDTH];
-    int head;
-    int tail;
+    int head;  // Индекс следующего извлекаемого узла
+    int tail;  // Индекс для добавления узла
 } Queue;
 
 static void QueuePush(Queue* queue, Node node) {

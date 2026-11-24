@@ -42,6 +42,12 @@ int InitCarClient(CarClient* client, const CarClientSettings* settings) {
 
     strcpy(registration.driverName, settings->driverName);
 
+    ClientType type = CLIENT_CAR;
+    if (SendAll(clientSocket, &type, sizeof(type)) == -1) {
+        perror("send car client type");
+        goto error;
+    }
+
     if (SendAll(clientSocket, &registration, sizeof(registration)) == -1) {
         perror("register car");
         goto error;

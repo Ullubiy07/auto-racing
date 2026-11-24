@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "judge.h"
 
@@ -68,6 +69,7 @@ int CountCarsInRace(const Judge* judge) {
 }
 
 void DrawLeaderBoard(const Judge* judge, int fd) {
+    bool color = isatty(fd);
     dprintf(fd, "================================LEADER BOARD=================================\n");
     dprintf(fd, " %-5s | %-3s | %-12s | %-12s | %-5s | %-5s | %-5s  | %-5s\n", "Place", "Car", "Team", "Driver", "Laps",
             "Lane", "Dist", "State");
@@ -76,8 +78,17 @@ void DrawLeaderBoard(const Judge* judge, int fd) {
         const CarStanding* standing = &judge->leaderBoard[i];
         const Car* car = &standing->car;
 
-        dprintf(fd, "   %-3d | \x1b[%d;1m%-6s\x1b[0m | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s\n", i + 1,
-                car->team.color, "🏎", car->team.name, car->driverName, car->laps, standing->lane,
-                standing->distToFinish, car->isOut ? "OUT" : "IN RACE");
+        dprintf(fd, "   %-3d | ", i + 1);
+        if (color) {
+            dprintf(fd, "\x1b[%d;1m", car->team.color);
+        }
+
+        dprintf(fd, "%-6s", "🏎");
+        if (color) {
+            dprintf(fd, "\x1b[0m");
+        }
+
+        dprintf(fd, " | %-12s | %-12s | %-5d | %-5d |  %-5d | %-5s%s\n", car->team.name, car->driverName, car->laps,
+                standing->lane, standing->distToFinish, car->isOut ? "OUT" : "IN RACE", color ? "\x1b[K" : "");
     }
 }

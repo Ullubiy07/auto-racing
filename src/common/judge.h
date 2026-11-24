@@ -7,22 +7,22 @@
 
 // Правила, которыми руководствуется судья
 typedef struct {
-    int maxLaps;  // Всего кругов
+    int maxLaps;  // Кругов для победы
 } JudgeRules;
 
 // Снимок машины и её положения на трассе, без привязки к карте.
 typedef struct {
-    Car car;
-    int lane;
-    int distToFinish;
+    Car car;           // Копия состояния машины
+    int lane;          // Полоса; -1 до расстановки
+    int distToFinish;  // Расстояние до финиша в клетках; -1, если неизвестно
 } CarStanding;
 
 // Таблица лидеров по последнему переданному снимку гонки.
 typedef struct {
-    const JudgeRules* rules;
+    const JudgeRules* rules;  // Заимствованный указатель на правила
 
-    CarStanding leaderBoard[MAX_CARS];
-    int carCount;  // Общее число машин
+    CarStanding leaderBoard[MAX_CARS];  // Порядок мест; индекс уже не равен ID
+    int carCount;                       // Число записей в таблице
 } Judge;
 
 // Создать пустую таблицу; правила должны жить дольше судьи.
