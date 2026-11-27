@@ -367,7 +367,7 @@ int RunCarClient(CarClient* client) {
     }
 
     while (!client->isOver && !client->isInterrupted && !client->car.isOut) {
-        if (rand_r(&seed) % 2) {
+        if (rand_r(&seed) % 4 == 0) {
             TryRandomMove(client);
         } else {
             TryBestMove(client);
