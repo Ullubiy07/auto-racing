@@ -1,4 +1,6 @@
 bin
 build
-*.zip
 logs
+*.zip
+.idea
+/docs/report_source/

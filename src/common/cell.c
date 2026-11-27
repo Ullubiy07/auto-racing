@@ -1,5 +1,7 @@
-#include <pthread.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "cell.h"
 
@@ -75,15 +77,25 @@ bool IsCellDriveable(CellType type) {
     return type == LAYOUT_ROAD || IsCellTurn(type) || IsCellStart(type);
 }
 
-void InitCell(Cell* cell, int x, int y, CellType type) {
+int InitCell(Cell* cell, int x, int y, CellType type) {
     cell->x = x;
     cell->y = y;
     cell->color = 37;
     cell->type = type;
-    cell->entity.data = NULL;
+    cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
+    if (pthread_mutex_init(&cell->mutex, NULL)) {
+        perror("Initialize cell mutex failed");
+        return 1;
+    }
+    return 0;
+}
 
-    pthread_mutex_init(&cell->mutex, NULL);
+void DestroyCell(Cell* cell) {
+    int error = pthread_mutex_destroy(&cell->mutex);
+    if (error != 0) {
+        dprintf(2, "Destroy cell mutex failed: %s\n", strerror(error));
+    }
 }
 
 bool TryTakeCell(Cell* cell, Entity e) {
@@ -99,7 +111,7 @@ bool TryTakeCell(Cell* cell, Entity e) {
 
 void LeaveCell(Cell* cell) {
     pthread_mutex_lock(&cell->mutex);
-    cell->entity.data = NULL;
+    cell->entity.id = -1;
     cell->entity.type = ENTITY_NONE;
     pthread_mutex_unlock(&cell->mutex);
 }
