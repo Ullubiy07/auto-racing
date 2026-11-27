@@ -127,7 +127,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     settings->carMaxDelayMs = DEFAULT_CAR_MAX_DELAY;
 
     time_t now = time(NULL);
-    strftime(settings->logFile, sizeof(settings->logFile), "../logs/race_%d-%m-%Y_%H-%M-%S.log", localtime(&now));
+    strftime(settings->logFile, sizeof(settings->logFile), "logs/race_%d-%m-%Y_%H-%M-%S.log", localtime(&now));
 
     while ((opt = getopt_long(argc, argv, "c:a:p:l:d:m:o:h", longOptions, NULL)) != -1) {
         switch (opt) {
@@ -214,7 +214,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     }
 
     if (!hasMap) {
-        ParseMapFile(settings, "../data/twisty");
+        ParseMapFile(settings, "data/twisty");
     }
     if (settings->carCount == 0) {
         dprintf(2, "Specify the number of cars with --cars N\n");

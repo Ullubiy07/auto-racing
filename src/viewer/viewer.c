@@ -9,8 +9,8 @@
 #include <unistd.h>
 
 static bool ValidInitialization(const ViewerInitMessage* message) {
-    if (message->mapWidth <= 0 || message->mapWidth > MAX_MAP_WIDTH ||
-        message->mapHeight <= 0 || message->mapHeight > MAX_MAP_HEIGHT) {
+    if (message->mapWidth <= 0 || message->mapWidth > MAX_MAP_WIDTH || message->mapHeight <= 0 ||
+        message->mapHeight > MAX_MAP_HEIGHT) {
         return false;
     }
 
@@ -37,10 +37,7 @@ int InitViewerClient(ViewerClient* client, const ViewerClientSettings* settings)
         return 1;
     }
 
-    struct sockaddr_in server = {
-        .sin_family = AF_INET,
-        .sin_port = htons(settings->port)
-    };
+    struct sockaddr_in server = {.sin_family = AF_INET, .sin_port = htons(settings->port)};
 
     if (inet_pton(AF_INET, settings->ip, &server.sin_addr) != 1) {
         dprintf(2, "Invalid server IPv4 address: %s\n", settings->ip);
@@ -101,9 +98,9 @@ int InitViewerClient(ViewerClient* client, const ViewerClientSettings* settings)
 static bool ValidSnapshot(const ViewerClient* client) {
     const RaceSnapshot* snapshot = &client->snapshot;
 
-    if (snapshot->state < RACE_WAITING || snapshot->state > RACE_FAILED ||
-        snapshot->carCount < 0 || snapshot->carCount > client->init.expectedCarCount ||
-        snapshot->winnerId < -1 || snapshot->winnerId >= snapshot->carCount) {
+    if (snapshot->state < RACE_WAITING || snapshot->state > RACE_FAILED || snapshot->carCount < 0 ||
+        snapshot->carCount > client->init.expectedCarCount || snapshot->winnerId < -1 ||
+        snapshot->winnerId >= snapshot->carCount) {
         return false;
     }
 
@@ -116,8 +113,8 @@ static bool ValidSnapshot(const ViewerClient* client) {
             return false;
         }
 
-        bool validPosition = car->pos.x >= 0 && car->pos.x < client->init.mapWidth &&
-                             car->pos.y >= 0 && car->pos.y < client->init.mapHeight;
+        bool validPosition = car->pos.x >= 0 && car->pos.x < client->init.mapWidth && car->pos.y >= 0 &&
+                             car->pos.y < client->init.mapHeight;
         bool notPlaced = car->pos.x == -1 && car->pos.y == -1;
 
         if (!validPosition && !notPlaced) {

@@ -11,37 +11,12 @@ int main(void) {
     assert(CountCarsInRace(&judge) == 0);
 
     CarStanding standings[] = {
-        {
-            .car = {.id = 0, .laps = 2, .hasPassedStart = true},
-            .lane = 2,
-            .distToFinish = 10
-        },
-        {
-            .car = {.id = 1, .laps = 2, .hasPassedStart = true},
-            .lane = 1,
-            .distToFinish = 10
-        },
-        {
-            .car = {.id = 2, .laps = 2, .hasPassedStart = true},
-            .lane = 3,
-            .distToFinish = 5
-        },
-        {
-            .car = {.id = 3, .laps = 1, .hasPassedStart = true},
-            .lane = 0,
-            .distToFinish = 0
-        },
-        {
-            .car = {.id = 4, .laps = 2},
-            .lane = 0,
-            .distToFinish = 0
-        },
-        {
-            .car = {.id = 5, .laps = 2, .hasPassedStart = true, .isOut = true},
-            .lane = 0,
-            .distToFinish = 0
-        }
-    };
+        {.car = {.id = 0, .laps = 2, .hasPassedStart = true}, .lane = 2, .distToFinish = 10},
+        {.car = {.id = 1, .laps = 2, .hasPassedStart = true}, .lane = 1, .distToFinish = 10},
+        {.car = {.id = 2, .laps = 2, .hasPassedStart = true}, .lane = 3, .distToFinish = 5},
+        {.car = {.id = 3, .laps = 1, .hasPassedStart = true}, .lane = 0, .distToFinish = 0},
+        {.car = {.id = 4, .laps = 2}, .lane = 0, .distToFinish = 0},
+        {.car = {.id = 5, .laps = 2, .hasPassedStart = true, .isOut = true}, .lane = 0, .distToFinish = 0}};
 
     UpdateLeaderBoard(&judge, standings, 6);
 

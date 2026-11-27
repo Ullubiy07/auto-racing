@@ -15,10 +15,10 @@ typedef struct {
 // Локальные копии карты и последнего снимка гонки.
 typedef struct {
     int socket;
-    ViewerInitMessage init;  // Карта и настройки, полученные при подключении
-    RaceSnapshot snapshot;  // Последний снимок от сервера
-    Judge judge;  // Локально отсортированная таблица
-    bool isTerminal;  // stdout — терминал; разрешены цвета и перерисовка
+    ViewerInitMessage init;               // Карта и настройки, полученные при подключении
+    RaceSnapshot snapshot;                // Последний снимок от сервера
+    Judge judge;                          // Локально отсортированная таблица
+    bool isTerminal;                      // stdout — терминал; разрешены цвета и перерисовка
     volatile sig_atomic_t isInterrupted;  // Флаг обработчика SIGINT/SIGTERM
 } ViewerClient;
 
