@@ -584,11 +584,10 @@ static bool ApplyCarMove(Race* race, int id, Point pos) {
     }
 
     Cell* current = &race->track.map[car->pos.y][car->pos.x];
-    if (!IsMoveAllowed(car, current->type, &current->road, pos)) {
+    Cell* next = &race->track.map[pos.y][pos.x];
+    if (!IsMoveAllowed(car, &current->road, &next->road, pos)) {
         return false;
     }
-
-    Cell* next = &race->track.map[pos.y][pos.x];
 
     if (!IsCellDriveable(next->type)) {
         return false;

@@ -38,7 +38,7 @@ static bool SamePosition(Point a, Point b) {
     return a.x == b.x && a.y == b.y;
 }
 
-bool IsMoveAllowed(const Car* car, CellType currentType, const Road* road, Point next) {
+bool IsMoveAllowed(const Car* car, const Road* road, const Road* nextRoad, Point next) {
     if (next.x < 0 || next.y < 0) {
         return false;
     }
@@ -51,15 +51,12 @@ bool IsMoveAllowed(const Car* car, CellType currentType, const Road* road, Point
         return false;
     }
 
-    if (SamePosition(next, road->forward)) {
-        return true;
-    }
-
-    if (IsCellTurn(currentType)) {
+    // Нельзя въехать в соседнюю клетку против её направления движения.
+    if (SamePosition(nextRoad->forward, car->pos)) {
         return false;
     }
 
-    return SamePosition(next, road->left) || SamePosition(next, road->right);
+    return SamePosition(next, road->forward) || SamePosition(next, road->left) || SamePosition(next, road->right);
 }
 
 static int SendBuffer(int socket, const void* data, size_t size, int flags) {

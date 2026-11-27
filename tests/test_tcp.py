@@ -5,6 +5,7 @@ import ctypes as c
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import signal
 import socket
@@ -259,8 +260,21 @@ class TcpRaceTests(unittest.TestCase):
         rows = [line.split("|") for line in report.splitlines() if line.count("|") == 6]
         self.assertTrue(any(row[3].strip() == "3" for row in rows))
         for car_id in [0, 1]:
-            self.assertIn("race finished, winner ID", (self.path / f"car-{car_id}.out").read_text())
+            output = (self.path / f"car-{car_id}.out").read_text()
+            self.assertIn("race finished, winner ID", output)
             self.assertEqual((self.path / f"car-{car_id}.err").read_text(), "")
+
+            initial = re.search(r"initialized at \((\d+), (\d+)\)", output)
+            self.assertIsNotNone(initial)
+            moves = re.findall(r"move to \((\d+), (\d+)\) accepted", output)
+            positions = [tuple(map(int, initial.groups())), *(tuple(map(int, point)) for point in moves)]
+            for index in range(1, len(positions)):
+                before, after = positions[index - 1:index + 1]
+                self.assertEqual(abs(before[0] - after[0]) + abs(before[1] - after[1]), 1)
+                if index >= 2:
+                    self.assertNotEqual(after, positions[index - 2])
+                if index >= 4:
+                    self.assertNotEqual(after, positions[index - 4], positions[index - 4:index + 1])
 
     def test_invalid_moves_and_authoritative_position(self):
         self.start_server()
@@ -278,6 +292,82 @@ class TcpRaceTests(unittest.TestCase):
         self.assertEqual(position(response.car.pos), target)
         self.assertEqual(position(response.car.prev), start)
         self.assertFalse(self.move(peer, start).allowed)
+        peer.close()
+        self.finish_server("All cars are out")
+
+    def test_car_can_pass_paused_car_after_turn(self):
+        self.start_server(cars=2, laps=10)
+        first, second = self.register("First"), self.register("Second")
+        a, b = self.initialize(first), self.initialize(second)
+
+        def follow_inner_lane(peer, initial, destination):
+            state = initial.car
+            for _ in range(2):
+                target = initial.map[state.pos.y][state.pos.x].road.right
+                response = self.move(peer, position(target))
+                self.assertTrue(response.allowed)
+                state = response.car
+            for _ in range(200):
+                if position(state.pos) == destination:
+                    return state
+                target = initial.map[state.pos.y][state.pos.x].road.forward
+                response = self.move(peer, position(target))
+                self.assertTrue(response.allowed)
+                state = response.car
+            self.fail(f"Car did not reach {destination}")
+
+        saved = follow_inner_lane(first, a, (4, 3))
+        state = follow_inner_lane(second, b, (3, 3))
+        road = b.map[state.pos.y][state.pos.x].road
+        self.assertEqual(position(road.forward), (4, 3))
+        self.assertEqual(position(road.left), (3, 2))
+        self.assertFalse(self.move(second, position(road.forward)).allowed)
+
+        self.control(0, 0)
+        receive_car_message(first, RACE_DISCONNECT)
+        first.close()
+        resumed = self.register("First", resume_id=0)
+        self.assertFalse(self.move(second, position(road.forward)).allowed)
+        self.assertTrue(self.move(second, position(road.left)).allowed)
+        self.assertFalse(self.move(second, (3, 3)).allowed)
+        self.assertTrue(self.move(second, (4, 2)).allowed)
+        self.assertFalse(self.move(second, (4, 3)).allowed)
+        self.assertTrue(self.move(second, (5, 2)).allowed)
+        self.assertTrue(self.move(second, (5, 3)).allowed)
+
+        self.control(1, 0)
+        restored = self.initialize(resumed)
+        self.assertEqual(position(restored.car.pos), position(saved.pos))
+        self.assertEqual(restored.car.laps, saved.laps)
+        resumed.close()
+        second.close()
+        self.finish_server("All cars are out")
+
+    def test_car_cannot_enter_neighbor_against_traffic(self):
+        self.start_server(laps=10)
+        peer = self.register("First")
+        initial = self.initialize(peer)
+        target = initial.map[initial.pos.y][initial.pos.x].road.right
+        response = self.move(peer, position(target))
+        self.assertTrue(response.allowed)
+        state = response.car
+
+        for _ in range(200):
+            if position(state.pos) == (2, 3):
+                break
+            target = initial.map[state.pos.y][state.pos.x].road.forward
+            response = self.move(peer, position(target))
+            self.assertTrue(response.allowed)
+            state = response.car
+        self.assertEqual(position(state.pos), (2, 3))
+
+        self.assertTrue(self.move(peer, (3, 3)).allowed)
+        self.assertEqual(position(initial.map[4][3].road.forward), (3, 3))
+        rejected = self.move(peer, (3, 4))
+        self.assertFalse(rejected.allowed)
+        self.assertEqual(position(rejected.car.pos), (3, 3))
+        self.assertEqual(position(rejected.car.prev), (2, 3))
+        self.assertTrue(self.move(peer, (4, 3)).allowed)
         peer.close()
         self.finish_server("All cars are out")
 

@@ -272,7 +272,7 @@ static bool TryMove(CarClient* client, MoveType type) {
 
     Point nextPosition = {.x = next->x, .y = next->y};
 
-    if (!IsMoveAllowed(&client->car, client->cell->type, &client->cell->road, nextPosition)) {
+    if (!IsMoveAllowed(&client->car, &client->cell->road, &next->road, nextPosition)) {
         return false;
     }
 

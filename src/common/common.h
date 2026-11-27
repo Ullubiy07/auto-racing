@@ -42,7 +42,7 @@ typedef enum { MOVE_LEFT, MOVE_RIGHT, MOVE_FORWARD, MOVE_NONE } MoveType;
 Point GetNextPosition(Point current, const Road* road, MoveType type);
 
 // Проверить правила перемещения без проверки занятости клетки.
-bool IsMoveAllowed(const Car* car, CellType currentType, const Road* road, Point next);
+bool IsMoveAllowed(const Car* car, const Road* road, const Road* nextRoad, Point next);
 
 // Данные клетки для обмена без серверного мьютекса.
 typedef struct {
