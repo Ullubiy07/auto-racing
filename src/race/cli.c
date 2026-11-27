@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <getopt.h>
 #include <arpa/inet.h>
 #include "race.h"
@@ -104,6 +106,7 @@ static void PrintHelp(const char* program) {
 
 bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     bool hasMap = false;
+    bool hasOutput = false;
 
     static struct option longOptions[] = {{"cars", required_argument, NULL, 'c'},
                                           {"ip", required_argument, NULL, 'a'},
@@ -199,6 +202,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
             if (!ParseLogFile(settings, optarg)) {
                 return false;
             }
+            hasOutput = true;
             break;
 
         case 'h':
@@ -218,6 +222,11 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
     }
     if (settings->carCount == 0) {
         dprintf(2, "Specify the number of cars with --cars N\n");
+        return false;
+    }
+
+    if (!hasOutput && mkdir("logs", 0755) == -1 && errno != EEXIST) {
+        perror("Create logs directory failed");
         return false;
     }
     return true;
