@@ -69,43 +69,37 @@ static bool ParseCarDelay(RaceSettings* settings) {
     return true;
 }
 
-static void PrintfBold(const char* text) {
-    dprintf(1, "\033[1m%s\033[0m", text);
-}
+static void PrintHelp(const char* program) {
+    dprintf(1,
+            "Usage: %s [OPTION]...\n"
+            "A console racing simulator on a grid-based circuit.\n\n"
 
-static void PrintHelpUsage(const char* progName) {
-    dprintf(1, "Usage: %s [OPTION]...\n", progName);
-    dprintf(1, "A console racing simulator on a grid-based circuit.\n\n");
-    dprintf(1, "Options:\n");
+            "Options:\n"
+            "  -c, --cars N\n"
+            "         Set the number of cars to wait for (required)\n"
+            "  -a, --ip ADDRESS\n"
+            "         Set the server IPv4 bind address (default: 0.0.0.0)\n"
+            "  -p, --port PORT\n"
+            "         Set the server port, from 1 to 65535 (default: %d)\n"
+            "  -l, --laps N\n"
+            "         Set the number of laps to win (default: %d)\n"
+            "  -d, --draw-delay MS\n"
+            "         Set the interval between screen updates (default: %d ms)\n"
+            "      --car-delay MIN:MAX\n"
+            "         Set the random delay between car moves in ms (default: %d:%d)\n"
+            "  -m, --map FILE\n"
+            "         Load a track map from the specified file\n"
+            "      --map-only\n"
+            "         Draw only the track map\n"
+            "  -o, --output FILE\n"
+            "         Save the race report to the specified file\n"
+            "  -h, --help\n"
+            "         Print this help message\n\n"
 
-    PrintfBold("  -c, --cars N\n");
-    dprintf(1, "         Set the number of cars to wait for (required)\n");
-
-    PrintfBold("  -a, --ip ADDRESS\n");
-    dprintf(1, "         Set the server IPv4 bind address (default: 0.0.0.0)\n");
-
-    PrintfBold("  -p, --port PORT\n");
-    dprintf(1, "         Set the server port, from 1 to 65535 (default: %d)\n", DEFAULT_PORT);
-
-    PrintfBold("  -l, --laps N\n");
-    dprintf(1, "         Set the number of laps to win (default: %d)\n", DEFAULT_MAX_LAPS);
-
-    PrintfBold("  -d, --draw-delay MS\n");
-    dprintf(1, "         Set the interval between screen updates (default: %d ms)\n", DEFAULT_DRAW_DELAY);
-    PrintfBold("      --car-delay MIN:MAX\n");
-    dprintf(1, "         Set the random delay between car moves in ms (default: %d:%d)\n", DEFAULT_CAR_MIN_DELAY,
-            DEFAULT_CAR_MAX_DELAY);
-
-    PrintfBold("  -m, --map FILE\n");
-    dprintf(1, "         Load a track map from the specified file\n");
-    PrintfBold("      --map-only\n");
-    dprintf(1, "         Draw only track map\n");
-
-    PrintfBold("  -o, --output FILE\n");
-    dprintf(1, "         Save the race report to the specified file\n");
-
-    PrintfBold("  -h, --help\n");
-    dprintf(1, "         Print help message\n");
+            "Example:\n"
+            "  %s --cars 2\n",
+            program, DEFAULT_PORT, DEFAULT_MAX_LAPS, DEFAULT_DRAW_DELAY, DEFAULT_CAR_MIN_DELAY, DEFAULT_CAR_MAX_DELAY,
+            program);
 }
 
 bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
@@ -208,7 +202,7 @@ bool ParseCLIArgs(RaceSettings* settings, int argc, char* argv[]) {
             break;
 
         case 'h':
-            PrintHelpUsage(argv[0]);
+            PrintHelp(argv[0]);
             exit(0);
 
         case '?':

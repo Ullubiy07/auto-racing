@@ -9,12 +9,26 @@
 #include "common.h"
 
 static void PrintHelp(const char* program) {
-    dprintf(1, "Usage: %s --port PORT [--ip ADDRESS] (--disconnect ID | --restore ID)\n", program);
-    dprintf(1, "  --disconnect ID   Disconnect a car and keep its race state\n");
-    dprintf(1, "  --restore ID      Let the car reconnect and continue\n");
-    dprintf(1, "  --ip ADDRESS      Server IPv4 address (default: 127.0.0.1)\n");
-    dprintf(1, "  --port PORT       Server port (required)\n");
-    dprintf(1, "  --help            Print this help\n");
+    dprintf(1,
+            "Usage: %s [OPTION]...\n"
+            "Manage car connections.\n\n"
+
+            "Options:\n"
+            "  -d, --disconnect ID\n"
+            "         Disconnect a car and keep its race state\n"
+            "  -r, --restore ID\n"
+            "         Let the car reconnect and continue\n"
+            "  -a, --ip ADDRESS\n"
+            "         Server IPv4 address (default: 127.0.0.1)\n"
+            "  -p, --port PORT\n"
+            "         Server port (required)\n"
+            "  -h, --help\n"
+            "         Print this help\n\n"
+
+            "Example:\n"
+            "  %s --port 8080 --disconnect 0\n"
+            "  %s --port 8080 --restore 0\n",
+            program, program, program);
 }
 
 bool ParseCLIArgs(ControlSettings* settings, int argc, char* argv[]) {

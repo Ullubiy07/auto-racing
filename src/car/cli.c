@@ -6,35 +6,28 @@
 #include <string.h>
 #include <stdio.h>
 
-static void PrintfBold(const char* text) {
-    dprintf(1, "\033[1m%s\033[0m", text);
-}
+static void PrintHelp(const char* program) {
+    dprintf(1,
+            "Usage: %s [OPTION]...\n"
+            "Connect a car to a race server.\n\n"
 
-static void PrintHelpUsage(const char* progName) {
-    dprintf(1, "Usage: %s [OPTION]...\n", progName);
-    dprintf(1, "Connect a car to a race server over TCP.\n\n");
-    dprintf(1, "Options:\n");
+            "Options:\n"
+            "  -n, --driver NAME\n"
+            "         Set the driver name (required, max: %d characters)\n"
+            "  -t, --team NAME\n"
+            "         Set the team name (required, max: %d characters)\n"
+            "  -c, --color N\n"
+            "         Set the team ANSI color code, from 31 to 37 (required)\n"
+            "  -a, --ip ADDRESS\n"
+            "         Set the server IPv4 address (default: 127.0.0.1)\n"
+            "  -p, --port PORT\n"
+            "         Set the server port, from 1 to 65535 (required)\n"
+            "  -h, --help\n"
+            "         Print this help message\n\n"
 
-    PrintfBold("  -n, --driver NAME\n");
-    dprintf(1, "         Set the driver name (required, max: %d characters)\n", MAX_DRIVER_NAME_SIZE - 1);
-
-    PrintfBold("  -t, --team NAME\n");
-    dprintf(1, "         Set the team name (required, max: %d characters)\n", MAX_TEAM_NAME_SIZE - 1);
-
-    PrintfBold("  -c, --color N\n");
-    dprintf(1, "         Set the team ANSI color code, from 31 to 37 (required)\n");
-
-    PrintfBold("  -a, --ip ADDRESS\n");
-    dprintf(1, "         Set the server IPv4 address (default: 127.0.0.1)\n");
-
-    PrintfBold("  -p, --port PORT\n");
-    dprintf(1, "         Set the server port, from 1 to 65535 (required)\n");
-
-    PrintfBold("  -h, --help\n");
-    dprintf(1, "         Print help message\n");
-
-    dprintf(1, "\nExample:\n");
-    dprintf(1, "  %s --driver Ullubiy --team \"Aston Martin\" --color 33 --ip 127.0.0.1 --port 8080\n", progName);
+            "Example:\n"
+            "  %s --driver Ullubiy --team \"Aston Martin\" --color 33 --port 8080\n",
+            program, MAX_DRIVER_NAME_SIZE - 1, MAX_TEAM_NAME_SIZE - 1, program);
 }
 
 bool ParseCLIArgs(CarClientSettings* args, int argc, char* argv[]) {
@@ -106,7 +99,7 @@ bool ParseCLIArgs(CarClientSettings* args, int argc, char* argv[]) {
         }
 
         case 'h':
-            PrintHelpUsage(argv[0]);
+            PrintHelp(argv[0]);
             exit(0);
 
         case '?':
